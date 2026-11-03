@@ -251,7 +251,7 @@ export default function Reading({ data, refresh, showToast }) {
                 <strong>{item.title}</strong>
                 <small>
                   {item.minutes} 分钟 · {item.difficulty}
-                  {item.imported ? " · 导入" : ""}
+                  {item.imported ? ` · ${item.subtitle}` : ""}
                 </small>
               </div>
               {articleRecord?.completedDate ? (

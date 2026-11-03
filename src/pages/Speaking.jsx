@@ -239,7 +239,10 @@ export default function Speaking({ data, refresh, showToast }) {
               title={material.fileName}
             >
               <FileText size={14} />
-              {material.fileName}
+              <span>{material.fileName}</span>
+              <small className="material-format">
+                {material.format} · {new Date(material.importedAt).toLocaleDateString("zh-CN")}
+              </small>
             </button>
           ))}
         </div>

@@ -1083,6 +1083,81 @@ input::placeholder {
   color: rgba(255, 255, 255, 0.65);
 }
 
+.source-library {
+  padding: 28px;
+}
+
+.source-library__heading h2 {
+  margin: 5px 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 24px;
+}
+
+.source-library__heading p {
+  margin: 0;
+  color: #7d8882;
+  font-size: 9px;
+}
+
+.source-library__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px;
+  margin-top: 22px;
+}
+
+.source-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 11px;
+  padding: 15px;
+  border: 1px solid #e4e0d6;
+  border-radius: 11px;
+  background: #fbf9f3;
+}
+
+.source-card > span {
+  width: 37px;
+  height: 37px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--sage);
+  color: var(--forest-2);
+}
+
+.source-card strong,
+.source-card small {
+  display: block;
+}
+
+.source-card strong {
+  overflow: hidden;
+  font-size: 10px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.source-card small {
+  margin-top: 4px;
+  color: #929a95;
+  font-size: 8px;
+}
+
+.source-card > b {
+  font-family: Georgia, serif;
+  font-size: 20px;
+  font-weight: 500;
+}
+
+.source-card > b small {
+  display: inline;
+  margin-left: 3px;
+  font-family: "Microsoft YaHei", sans-serif;
+  font-size: 7px;
+}
+
 .word-bank {
   overflow: hidden;
   padding: 27px;
@@ -1696,6 +1771,21 @@ input::placeholder {
   text-overflow: ellipsis;
   white-space: nowrap;
   cursor: pointer;
+}
+
+.material-strip__list button > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.material-format {
+  flex: 0 0 auto;
+  color: #9ca49f;
+  font-size: 7px;
+}
+
+.material-strip__list button.is-active .material-format {
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .material-strip__list button.is-active {

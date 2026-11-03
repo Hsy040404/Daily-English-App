@@ -406,6 +406,48 @@ const tests = {
       path: path.join(outputRoot, "issue-9.png"),
       fullPage: true
     });
+  },
+  10: async ({ page }) => {
+    await navigate(page, "每日单词");
+    await page.getByRole("tab", { name: /导入来源/ }).click();
+    const wordSource = page.locator(".source-card");
+    await wordSource.waitFor();
+    assert(
+      (await wordSource.count()) === 1,
+      "每日单词没有显示导入来源"
+    );
+    assert(
+      (await wordSource.innerText()).includes("内置示例词库") &&
+        (await wordSource.innerText()).includes("120"),
+      "单词导入来源没有显示文件名和单词数量"
+    );
+
+    await navigate(page, "口语练习");
+    await page.getByLabel("导入口语文件").setInputFiles(sourceDocx);
+    const speakingSource = page
+      .locator(".material-strip__list button")
+      .filter({ hasText: "中考688词汇默写卷.docx" });
+    await speakingSource.waitFor();
+    assert(
+      (await speakingSource.innerText()).includes("DOCX"),
+      "口语导入来源没有显示文件格式"
+    );
+
+    await navigate(page, "英语阅读");
+    await page.getByLabel("导入阅读文件").setInputFiles(sourcePdf);
+    const readingSource = page
+      .locator(".article-tabs button")
+      .filter({ hasText: "source-preview" })
+      .first();
+    await readingSource.waitFor({ timeout: 30_000 });
+    assert(
+      (await readingSource.innerText()).includes("导入自 PDF"),
+      "阅读导入来源没有显示导入格式"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-10.png"),
+      fullPage: true
+    });
   }
 };
 

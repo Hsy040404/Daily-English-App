@@ -7,6 +7,7 @@ import {
   ChevronDown,
   Download,
   FileUp,
+  FileText,
   Headphones,
   Library,
   LoaderCircle,
@@ -75,13 +76,15 @@ export default function Words({ data, refresh, showToast }) {
     setTargetDraft(data.wordTarget);
   }, [data.wordTarget]);
 
-  const sourceSummary = useMemo(() => {
+  const wordSources = useMemo(() => {
     const names = new Map();
     for (const word of data.words) {
-      names.set(word.sourceName || "词库", (names.get(word.sourceName || "词库") || 0) + 1);
+      const sourceName = word.sourceName || "个人词库";
+      names.set(sourceName, (names.get(sourceName) || 0) + 1);
     }
-    return [...names.entries()].slice(0, 3);
+    return [...names.entries()].map(([name, count]) => ({ name, count }));
   }, [data.words]);
+  const sourceSummary = wordSources.slice(0, 3).map(({ name }) => [name]);
   const filteredBankWords = useMemo(() => {
     const query = bankQuery.trim().toLocaleLowerCase("en");
     return data.words.filter(
@@ -303,6 +306,15 @@ export default function Words({ data, refresh, showToast }) {
           <Library size={16} /> 全部词库
           <span>{data.wordCount}</span>
         </button>
+        <button
+          className={activeView === "sources" ? "is-active" : ""}
+          onClick={() => setActiveView("sources")}
+          role="tab"
+          aria-selected={activeView === "sources"}
+        >
+          <FileText size={16} /> 导入来源
+          <span>{wordSources.length}</span>
+        </button>
       </div>
 
       <section className="word-stats">
@@ -323,7 +335,7 @@ export default function Words({ data, refresh, showToast }) {
         <div className="word-stat word-stat--sources">
           <Sparkles size={18} />
           <div>
-            <strong>{sourceSummary.length}</strong>
+            <strong>{wordSources.length}</strong>
             <span>导入来源</span>
           </div>
           <div className="source-dots">
@@ -346,7 +358,27 @@ export default function Words({ data, refresh, showToast }) {
         </div>
       </section>
 
-      {activeView === "bank" ? (
+      {activeView === "sources" ? (
+        <section className="source-library panel">
+          <div className="source-library__heading">
+            <span className="eyebrow">IMPORT SOURCES</span>
+            <h2>单词导入来源</h2>
+            <p>这里列出当前词库中的来源文件和对应单词数量。</p>
+          </div>
+          <div className="source-library__grid">
+            {wordSources.map((source) => (
+              <div className="source-card" key={source.name}>
+                <span><FileText size={19} /></span>
+                <div>
+                  <strong>{source.name}</strong>
+                  <small>每日单词 · 本地导入</small>
+                </div>
+                <b>{source.count}<small>词</small></b>
+              </div>
+            ))}
+          </div>
+        </section>
+      ) : activeView === "bank" ? (
         <section className="word-bank panel">
           <div className="word-bank__header">
             <div>
