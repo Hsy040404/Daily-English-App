@@ -547,12 +547,11 @@ const tests = {
   7: async ({ page }) => {
     await navigate(page, "口语练习");
     await page.getByLabel("导入口语文件").setInputFiles(sourceDocx);
-    await page
-      .getByRole("button", { name: /中考688词汇默写卷\.docx/ })
-      .waitFor();
-    await page
-      .getByRole("button", { name: /中考688词汇默写卷\.docx/ })
-      .click();
+    const importedSpeaking = page
+      .locator(".material-select")
+      .filter({ hasText: "中考688词汇默写卷.docx" });
+    await importedSpeaking.waitFor();
+    await importedSpeaking.click();
     assert(
       (await page.locator(".speaking-question").innerText()).includes("make"),
       "导入的口语 Word 素材没有显示正文"
@@ -561,7 +560,9 @@ const tests = {
     await page.reload({ waitUntil: "networkidle" });
     await navigate(page, "口语练习");
     assert(
-      (await page.getByRole("button", { name: /中考688词汇默写卷\.docx/ }).count()) > 0,
+      (await page.locator(".material-select").filter({
+        hasText: "中考688词汇默写卷.docx"
+      }).count()) > 0,
       "刷新后口语导入来源丢失"
     );
     await page.screenshot({
@@ -588,7 +589,7 @@ const tests = {
     await page.locator(".word-bank-row").click();
     await page.locator(".modal .study-choice--again").click();
 
-    await navigate(page, "每日单词");
+    await page.getByRole("tab", { name: /今日学习/ }).click();
     await page.locator(".word-navigation .study-choice--hard").click();
     await page.waitForTimeout(300);
 
