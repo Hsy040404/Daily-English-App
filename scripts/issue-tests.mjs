@@ -300,6 +300,25 @@ const tests = {
         words.some((word) => word.english === "beta"),
       "清洗后的新单词没有写入词库"
     );
+
+    const assignments = await readIndexedDb(page, "assignments");
+    const todayAssignment = assignments.at(-1);
+    const highOrderWords = [...words]
+      .sort((left, right) => left.order - right.order)
+      .slice(-10);
+    await putIndexedDb(page, "assignments", {
+      ...todayAssignment,
+      wordIds: highOrderWords.map((word) => word.id)
+    });
+    await page.reload({ waitUntil: "networkidle" });
+    await navigate(page, "每日单词");
+    const dailyOrdinals = await page
+      .locator(".mini-word-list .word-order")
+      .allTextContents();
+    assert(
+      dailyOrdinals.join(",") === "1,2,3,4,5,6,7,8,9,10",
+      "今日词单序号没有从 1 开始连续排列"
+    );
     await page.screenshot({
       path: path.join(outputRoot, "issue-n2.png"),
       fullPage: true

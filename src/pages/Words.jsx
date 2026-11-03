@@ -576,7 +576,7 @@ export default function Words({ data, refresh, showToast }) {
                     onClick={() => selectWord(wordIndex)}
                   >
                     <span className="mini-word-main">
-                      <span className="word-order">{word.order}</span>
+                      <span className="word-order">{wordIndex + 1}</span>
                       <span className="mini-word-text">{word.english}</span>
                     </span>
                     {studied ? <Check size={15} /> : null}
