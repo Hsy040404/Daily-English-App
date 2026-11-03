@@ -957,6 +957,79 @@ input::placeholder {
   line-height: 1.7;
 }
 
+.backup-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(170px, 0.55fr) auto;
+  align-items: center;
+  gap: 24px;
+  margin-top: 18px;
+  padding: 20px 23px;
+}
+
+.backup-panel__copy {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.backup-panel__icon {
+  width: 39px;
+  height: 39px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border-radius: 11px;
+  background: var(--sage);
+  color: var(--forest-2);
+}
+
+.backup-panel h2 {
+  margin: 4px 0;
+  font-family: Georgia, "Songti SC", serif;
+  font-size: 18px;
+}
+
+.backup-panel p {
+  max-width: 540px;
+  margin: 0;
+  color: #7c8881;
+  font-size: 8px;
+  line-height: 1.7;
+}
+
+.backup-panel__status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #557663;
+}
+
+.backup-panel__status strong,
+.backup-panel__status span {
+  display: block;
+}
+
+.backup-panel__status strong {
+  font-size: 9px;
+}
+
+.backup-panel__status span {
+  margin-top: 3px;
+  color: #909893;
+  font-size: 7px;
+}
+
+.backup-panel__actions {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.backup-panel__actions .text-button {
+  margin-right: 3px;
+  white-space: nowrap;
+}
+
 /* Words */
 
 .word-stats {

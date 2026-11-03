@@ -367,6 +367,45 @@ const tests = {
       path: path.join(outputRoot, "issue-8.png"),
       fullPage: true
     });
+  },
+  9: async ({ page }) => {
+    const memo = page.getByLabel("今日快速备忘");
+    await memo.fill("备份前的内容");
+    await page.waitForTimeout(1200);
+    const backups = await readIndexedDb(page, "backups");
+    assert(backups.length > 0, "没有生成每日自动备份");
+    assert(
+      backups.at(-1).data.includes("备份前的内容"),
+      "自动备份没有包含当前备忘内容"
+    );
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /下载完整备份/ }).click();
+    const download = await downloadPromise;
+    const backupPath = path.join(outputRoot, "issue-9-backup.json");
+    await download.saveAs(backupPath);
+    const backupJson = JSON.parse(await fs.readFile(backupPath, "utf8"));
+    assert(
+      JSON.stringify(backupJson).includes("备份前的内容"),
+      "下载的完整备份没有包含学习数据"
+    );
+
+    await memo.fill("备份后被修改的内容");
+    await page.waitForTimeout(1000);
+    page.once("dialog", (dialog) => dialog.accept());
+    const reloadPromise = page.waitForEvent("load", { timeout: 20_000 });
+    await page.getByLabel("选择备份文件").setInputFiles(backupPath);
+    await reloadPromise;
+    await page.getByLabel("今日快速备忘").waitFor();
+    await page.waitForTimeout(450);
+    assert(
+      (await page.getByLabel("今日快速备忘").inputValue()) === "备份前的内容",
+      "恢复备份后数据没有回到备份时状态"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-9.png"),
+      fullPage: true
+    });
   }
 };
 

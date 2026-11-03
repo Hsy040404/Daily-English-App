@@ -21,6 +21,7 @@ import {
 import { readings } from "./data/content";
 import { readingMaterialsToArticles } from "./utils/materials";
 import { localDateKey } from "./utils/date";
+import { createDailyBackup } from "./utils/backup";
 import { Toast } from "./components/ui";
 import Home from "./pages/Home";
 import Words from "./pages/Words";
@@ -181,15 +182,21 @@ export default function App() {
 
   const refresh = useCallback(async () => {
     const snapshot = await loadSnapshot();
-    setData(snapshot);
-    return snapshot;
+    let latestBackup = null;
+    try {
+      latestBackup = await createDailyBackup();
+    } catch (error) {
+      console.error("自动备份失败", error);
+    }
+    const nextData = { ...snapshot, latestBackup };
+    setData(nextData);
+    return nextData;
   }, []);
 
   useEffect(() => {
     if (initStarted.current) return;
     initStarted.current = true;
-    loadSnapshot()
-      .then(setData)
+    refresh()
       .catch((error) => {
         console.error(error);
         setFatalError(error.message || "本地数据加载失败");

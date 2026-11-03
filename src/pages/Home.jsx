@@ -13,8 +13,9 @@ import { db } from "../db";
 import { formatChineseDate, greeting, localDateKey } from "../utils/date";
 import { ProgressRing } from "../components/ui";
 import ActivityCalendar from "../components/ActivityCalendar";
+import BackupPanel from "../components/BackupPanel";
 
-export default function Home({ data, navigate, refresh }) {
+export default function Home({ data, navigate, refresh, showToast }) {
   const [memo, setMemo] = useState(data.memo?.text || "");
   const [saveState, setSaveState] = useState("已保存");
   const timer = useRef(null);
@@ -231,6 +232,12 @@ export default function Home({ data, navigate, refresh }) {
       <ActivityCalendar
         activityByDate={data.activityByDate}
         today={data.today}
+      />
+      <BackupPanel
+        latestBackup={data.latestBackup}
+        today={data.today}
+        refresh={refresh}
+        showToast={showToast}
       />
     </div>
   );
