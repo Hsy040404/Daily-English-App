@@ -21,8 +21,6 @@ const outputRoot =
 const edgePath =
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const sourceDocx = "C:\\Users\\86152\\Desktop\\中考688词汇默写卷.docx";
-const sourcePdf =
-  "C:\\Users\\86152\\.codex\\visualizations\\2026\\11\\02\\01a19cca-5312-7ea3-9772-54051b508846\\docx-review\\source-preview.pdf";
 const issue = String(process.argv[2] || "");
 
 const mimeTypes = {
@@ -235,6 +233,31 @@ const tests = {
       fullPage: true
     });
   },
+  n4: async ({ page }) => {
+    assert(
+      (await page.locator(".main-nav button").filter({ hasText: "英语阅读" }).count()) === 0,
+      "侧边栏仍然存在英语阅读入口"
+    );
+    assert(
+      !(await page.locator(".home-page").innerText()).includes("英语阅读"),
+      "首页仍然包含英语阅读任务"
+    );
+    assert(
+      (await page.locator(".summary-card").count()) === 3,
+      "删除阅读后首页摘要数量不正确"
+    );
+    assert(
+      (await page.locator(".plan-row").count()) === 3,
+      "删除阅读后今日计划数量不正确"
+    );
+    await navigate(page, "每日单词");
+    await navigate(page, "口语练习");
+    await navigate(page, "间隔复习");
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-n4.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();
@@ -403,28 +426,11 @@ const tests = {
       "导入的口语 Word 素材没有显示正文"
     );
 
-    await navigate(page, "英语阅读");
-    await page.getByLabel("导入阅读文件").setInputFiles(sourcePdf);
-    const importedTab = page
-      .getByRole("button", { name: /source-preview/ })
-      .first();
-    await importedTab.waitFor({ timeout: 30_000 });
-    await importedTab.click();
-    assert(
-      (await page.locator(".article-body").innerText()).includes("make"),
-      "导入的 PDF 阅读材料没有显示正文"
-    );
-
     await page.reload({ waitUntil: "networkidle" });
     await navigate(page, "口语练习");
     assert(
       (await page.getByRole("button", { name: /中考688词汇默写卷\.docx/ }).count()) > 0,
       "刷新后口语导入来源丢失"
-    );
-    await navigate(page, "英语阅读");
-    assert(
-      (await page.getByRole("button", { name: /source-preview/ }).count()) > 0,
-      "刷新后阅读导入来源丢失"
     );
     await page.screenshot({
       path: path.join(outputRoot, "issue-7.png"),
@@ -450,8 +456,8 @@ const tests = {
     await page.locator(".word-bank-row").click();
     await page.locator(".modal .study-choice--again").click();
 
-    await navigate(page, "英语阅读");
-    await page.getByRole("button", { name: /标记今天已读完/ }).click();
+    await navigate(page, "每日单词");
+    await page.locator(".word-navigation .study-choice--hard").click();
     await page.waitForTimeout(300);
 
     await navigate(page, "今日总览");
@@ -465,8 +471,8 @@ const tests = {
     );
     await page.locator(`[data-date="${today}"]`).click();
     assert(
-      (await detail.innerText()).includes("阅读"),
-      "日历没有显示今天的阅读完成记录"
+      (await detail.innerText()).includes("单词"),
+      "日历没有显示今天完成的单词学习"
     );
     await page.screenshot({
       path: path.join(outputRoot, "issue-8.png"),
@@ -538,17 +544,6 @@ const tests = {
       "口语导入来源没有显示文件格式"
     );
 
-    await navigate(page, "英语阅读");
-    await page.getByLabel("导入阅读文件").setInputFiles(sourcePdf);
-    const readingSource = page
-      .locator(".article-tabs button")
-      .filter({ hasText: "source-preview" })
-      .first();
-    await readingSource.waitFor({ timeout: 30_000 });
-    assert(
-      (await readingSource.innerText()).includes("导入自 PDF"),
-      "阅读导入来源没有显示导入格式"
-    );
     await page.screenshot({
       path: path.join(outputRoot, "issue-10.png"),
       fullPage: true

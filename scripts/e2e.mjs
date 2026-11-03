@@ -116,20 +116,6 @@ try {
   await page.getByRole("button", { name: /保存练习记录/ }).click();
   await shot("04-speaking");
 
-  await navigate("英语阅读");
-  await page.locator(".reading-sheet").waitFor();
-  await page.locator(".reading-word").first().click();
-  await page
-    .getByPlaceholder("填写释义后加入词库")
-    .fill("许多；很多");
-  await page.getByRole("button", { name: /加入每日单词/ }).click();
-  await page.getByPlaceholder("摘录最值得记住的一句英文").fill(
-    "A routine becomes useful when it is simple enough to repeat."
-  );
-  await page.getByRole("button", { name: /保存笔记/ }).click();
-  await page.getByRole("button", { name: /标记今天已读完/ }).click();
-  await shot("05-reading");
-
   await navigate("间隔复习");
   await page.locator(".review-overview").waitFor();
   await page.getByRole("button", { name: /复习今日单词/ }).click();
@@ -167,7 +153,7 @@ try {
     "关闭并重新打开浏览器后备忘没有保留"
   );
   assert(
-    (await restartPage.locator("body").innerText()).includes("词库共 121 词"),
+    (await restartPage.locator("body").innerText()).includes("词库共 120 词"),
     "关闭并重新打开浏览器后词库没有保留"
   );
   await restartPage.screenshot({
@@ -187,7 +173,6 @@ try {
       "02-words.png",
       "03-pdf-import-preview.png",
       "04-speaking.png",
-      "05-reading.png",
       "06-review.png",
       "07-home-after.png",
       "08-restart-persistence.png"

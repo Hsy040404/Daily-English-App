@@ -5,7 +5,6 @@ import {
   Check,
   Circle,
   Mic2,
-  PenLine,
   RotateCcw,
   Sparkles
 } from "lucide-react";
@@ -42,10 +41,6 @@ export default function Home({ data, navigate, refresh, showToast }) {
   const speakingDone = Boolean(
     data.todaySpeaking?.blob || data.todaySpeaking?.duration > 0
   );
-  const readingRecord = data.readingRecords.find(
-    (record) => record.id === data.currentArticleId
-  );
-  const readingDone = readingRecord?.completedDate === localDateKey();
   const reviewDone = data.todayReviewCount > 0;
   const plan = [
     {
@@ -64,13 +59,6 @@ export default function Home({ data, navigate, refresh, showToast }) {
       detail: speakingDone ? "今天已经留下录音" : "选择一个话题，开口 60 秒",
       done: speakingDone,
       icon: Mic2
-    },
-    {
-      id: "reading",
-      title: "英语阅读",
-      detail: readingDone ? "今天的阅读已经完成" : data.articleTitle,
-      done: readingDone,
-      icon: PenLine
     },
     {
       id: "review",
@@ -109,15 +97,6 @@ export default function Home({ data, navigate, refresh, showToast }) {
       icon: Mic2
     },
     {
-      id: "reading",
-      label: "阅读",
-      value: data.articleMinutes || 4,
-      unit: "分钟",
-      note: readingDone ? "今日阅读已完成" : data.articleTitle,
-      accent: "clay",
-      icon: PenLine
-    },
-    {
       id: "review",
       label: "复习",
       value: data.dueCount,
@@ -145,7 +124,7 @@ export default function Home({ data, navigate, refresh, showToast }) {
           </button>
         </div>
         <div className="home-hero__progress">
-          <ProgressRing value={progress} label={`${doneCount}/4 完成`} />
+          <ProgressRing value={progress} label={`${doneCount}/${plan.length} 完成`} />
           <span>{progress === 100 ? "今日计划已完成" : "今日计划"}</span>
         </div>
       </section>

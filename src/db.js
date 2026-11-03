@@ -66,8 +66,7 @@ db.version(5).stores({
 
 export const defaults = {
   wordTarget: 10,
-  reviewTarget: 20,
-  currentArticleId: "morning-routine"
+  reviewTarget: 20
 };
 
 export async function getSetting(key, fallback = null) {

@@ -4,7 +4,6 @@ import {
   CircleUserRound,
   Database,
   Home as HomeIcon,
-  Library,
   Mic2,
   RotateCcw,
   Sparkles
@@ -18,22 +17,18 @@ import {
   initializeSettings,
   saveWordPairs
 } from "./db";
-import { readings } from "./data/content";
-import { readingMaterialsToArticles } from "./utils/materials";
 import { localDateKey } from "./utils/date";
 import { createDailyBackup } from "./utils/backup";
 import { Toast } from "./components/ui";
 import Home from "./pages/Home";
 import Words from "./pages/Words";
 import Speaking from "./pages/Speaking";
-import Reading from "./pages/Reading";
 import Review from "./pages/Review";
 
 const navigation = [
   { id: "home", label: "今日总览", icon: HomeIcon },
   { id: "words", label: "每日单词", icon: BookOpen },
   { id: "speaking", label: "口语练习", icon: Mic2 },
-  { id: "reading", label: "英语阅读", icon: Library },
   { id: "review", label: "间隔复习", icon: RotateCcw }
 ];
 
@@ -41,7 +36,6 @@ const pageTitles = {
   home: "今日总览",
   words: "每日单词",
   speaking: "口语练习",
-  reading: "英语阅读",
   review: "间隔复习"
 };
 
@@ -75,44 +69,31 @@ async function loadSnapshot() {
     wordTarget,
     reviewTarget,
     todaySpeaking,
-    readingRecords,
-    currentArticleId,
     memo,
     todayReviewCount,
     knownCount,
     materials,
     studyLogs,
     reviewLogs,
-    speakingLogs,
-    readingCompletions
+    speakingLogs
   ] = await Promise.all([
     db.words.orderBy("order").toArray(),
     getDueWords(today),
     getSetting("wordTarget", defaults.wordTarget),
     getSetting("reviewTarget", defaults.reviewTarget),
     db.speaking.get(today),
-    db.readings.toArray(),
-    getSetting("currentArticleId", defaults.currentArticleId),
     db.memos.get(today),
     db.reviewLogs.where("date").equals(today).count(),
     db.words.where("status").equals("known").count(),
     db.materials.toArray(),
     db.studyLogs.toArray(),
     db.reviewLogs.toArray(),
-    db.speaking.toArray(),
-    db.readingCompletions.toArray()
+    db.speaking.toArray()
   ]);
   const wordMap = new Map(words.map((word) => [word.id, word]));
   const todayWords = assignment.wordIds
     .map((id) => wordMap.get(id))
     .filter(Boolean);
-  const readingArticles = [
-    ...readings,
-    ...readingMaterialsToArticles(materials)
-  ];
-  const article =
-    readingArticles.find((item) => item.id === currentArticleId) ||
-    readingArticles[0];
   const statusCounts = {
     unfamiliar: words.filter((word) => word.status === "unfamiliar").length,
     learning: words.filter((word) => word.status === "learning").length,
@@ -126,8 +107,7 @@ async function loadSnapshot() {
         date,
         words: 0,
         reviews: 0,
-        speaking: 0,
-        reading: 0
+        speaking: 0
       };
     }
     return activityByDate[date];
@@ -143,10 +123,6 @@ async function loadSnapshot() {
       getActivity(record.date).speaking += 1;
     }
   });
-  readingCompletions.forEach((record) => {
-    getActivity(record.date).reading += 1;
-  });
-
   return {
     today,
     words,
@@ -164,11 +140,7 @@ async function loadSnapshot() {
     statusCounts,
     activityByDate,
     todaySpeaking: todaySpeaking || null,
-    readingRecords,
     materials,
-    currentArticleId: article.id,
-    articleTitle: article.title,
-    articleMinutes: article.minutes,
     memo: memo || null
   };
 }
@@ -308,7 +280,6 @@ export default function App() {
         {page === "home" ? <Home {...pageProps} /> : null}
         {page === "words" ? <Words {...pageProps} /> : null}
         {page === "speaking" ? <Speaking {...pageProps} /> : null}
-        {page === "reading" ? <Reading {...pageProps} /> : null}
         {page === "review" ? <Review {...pageProps} /> : null}
       </main>
 

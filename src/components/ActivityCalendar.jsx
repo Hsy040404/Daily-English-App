@@ -36,8 +36,7 @@ export default function ActivityCalendar({ activityByDate, today }) {
   const selectedActivity = activityByDate[selectedDate] || {
     words: 0,
     reviews: 0,
-    speaking: 0,
-    reading: 0
+    speaking: 0
   };
 
   function moveMonth(offset) {
@@ -70,7 +69,7 @@ export default function ActivityCalendar({ activityByDate, today }) {
             if (!date) return <span className="calendar-blank" key={`blank-${index}`} />;
             const activity = activityByDate[date];
             const completedKinds = activity
-              ? ["words", "reviews", "speaking", "reading"].filter(
+              ? ["words", "reviews", "speaking"].filter(
                   (key) => activity[key] > 0
                 ).length
               : 0;
@@ -92,7 +91,6 @@ export default function ActivityCalendar({ activityByDate, today }) {
                   {activity?.words > 0 ? <b className="dot-words" /> : null}
                   {activity?.reviews > 0 ? <b className="dot-reviews" /> : null}
                   {activity?.speaking > 0 ? <b className="dot-speaking" /> : null}
-                  {activity?.reading > 0 ? <b className="dot-reading" /> : null}
                 </i>
               </button>
             );
@@ -123,11 +121,6 @@ export default function ActivityCalendar({ activityByDate, today }) {
             <Mic2 size={16} />
             <span>口语</span>
             <strong>{selectedActivity.speaking}</strong>
-          </div>
-          <div>
-            <BookOpen size={16} />
-            <span>阅读</span>
-            <strong>{selectedActivity.reading}</strong>
           </div>
         </div>
         <p>
