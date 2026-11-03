@@ -294,6 +294,44 @@ export async function saveImportedMaterial({
   return db.materials.add(material);
 }
 
+export async function deleteWordSource(sourceName) {
+  const allWords = await db.words.toArray();
+  const sourceWords = allWords.filter(
+    (word) => (word.sourceName || "个人词库") === sourceName
+  );
+  if (!sourceWords.length) return { deletedWords: 0, deletedLogs: 0 };
+
+  const wordIds = sourceWords.map((word) => word.id);
+  const wordIdSet = new Set(wordIds);
+  const englishSet = new Set(sourceWords.map((word) => word.english));
+  const assignments = await db.assignments.toArray();
+  const logs = await db.studyLogs.toArray();
+  const reviewLogs = await db.reviewLogs.toArray();
+  const sourceLogs = logs.filter((log) => wordIdSet.has(log.wordId));
+  const sourceReviewLogs = reviewLogs.filter((log) => englishSet.has(log.english));
+
+  await db.transaction(
+    "rw",
+    [db.words, db.assignments, db.studyLogs, db.reviewLogs],
+    async () => {
+      await db.words.bulkDelete(wordIds);
+      await db.assignments.bulkPut(
+        assignments.map((assignment) => ({
+          ...assignment,
+          wordIds: assignment.wordIds.filter((id) => !wordIdSet.has(id))
+        }))
+      );
+      await db.studyLogs.bulkDelete(sourceLogs.map((log) => log.id));
+      await db.reviewLogs.bulkDelete(sourceReviewLogs.map((log) => log.id));
+    }
+  );
+
+  return {
+    deletedWords: sourceWords.length,
+    deletedLogs: sourceLogs.length + sourceReviewLogs.length
+  };
+}
+
 export async function scheduleReview(word, rating) {
   const today = localDateKey();
   const stage = Number(word.reviewStage || 0);

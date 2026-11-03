@@ -14,9 +14,16 @@ import {
   Plus,
   Search,
   Sparkles,
+  Trash2,
   Volume2
 } from "lucide-react";
-import { db, markWordStudy, saveWordPairs, updateTodayTarget } from "../db";
+import {
+  db,
+  deleteWordSource,
+  markWordStudy,
+  saveWordPairs,
+  updateTodayTarget
+} from "../db";
 import {
   EmptyState,
   Modal,
@@ -174,6 +181,19 @@ export default function Words({ data, refresh, showToast }) {
             : "已经认识"
       }（${bankStudyDate}）`
     );
+  }
+
+  async function removeSource(source) {
+    if (
+      !window.confirm(
+        `确定删除来源“${source.name}”吗？该来源带来的 ${source.count} 个单词及相关学习记录也会删除。`
+      )
+    ) {
+      return;
+    }
+    const result = await deleteWordSource(source.name);
+    await refresh();
+    showToast(`来源已删除，同时移除了 ${result.deletedWords} 个单词`);
   }
 
   async function handleFile(event) {
@@ -377,6 +397,13 @@ export default function Words({ data, refresh, showToast }) {
                   <small>每日单词 · 本地导入</small>
                 </div>
                 <b>{source.count}<small>词</small></b>
+                <button
+                  className="source-delete"
+                  onClick={() => removeSource(source)}
+                  aria-label={`删除来源 ${source.name}`}
+                >
+                  <Trash2 size={15} />
+                </button>
               </div>
             ))}
           </div>

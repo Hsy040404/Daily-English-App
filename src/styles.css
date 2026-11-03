@@ -1109,13 +1109,30 @@ input::placeholder {
 
 .source-card {
   display: grid;
-  grid-template-columns: 38px minmax(0, 1fr) auto;
+  grid-template-columns: 38px minmax(0, 1fr) auto 30px;
   align-items: center;
   gap: 11px;
   padding: 15px;
   border: 1px solid #e4e0d6;
   border-radius: 11px;
   background: #fbf9f3;
+}
+
+.source-delete {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #e4d8d3;
+  border-radius: 8px;
+  background: #fff8f5;
+  color: #a96050;
+  cursor: pointer;
+}
+
+.source-delete:hover {
+  border-color: #c88b7c;
+  background: #fbece7;
 }
 
 .source-card > span {

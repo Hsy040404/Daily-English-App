@@ -135,6 +135,39 @@ async function readIndexedDb(page, storeName) {
   );
 }
 
+async function writeWordFixture(fileName, rows) {
+  const fixturePath = path.join(outputRoot, fileName);
+  const fixture = new Document({
+    sections: [
+      {
+        children: [
+          new Table({
+            rows: [
+              new TableRow({
+                children: ["英文", "中文"].map(
+                  (text) =>
+                    new TableCell({ children: [new Paragraph(text)] })
+                )
+              }),
+              ...rows.map(
+                ([english, chinese]) =>
+                  new TableRow({
+                    children: [
+                      new TableCell({ children: [new Paragraph(english)] }),
+                      new TableCell({ children: [new Paragraph(chinese)] })
+                    ]
+                  })
+              )
+            ]
+          })
+        ]
+      }
+    ]
+  });
+  await fs.writeFile(fixturePath, await Packer.toBuffer(fixture));
+  return fixturePath;
+}
+
 const tests = {
   n2: async ({ page }) => {
     const fixturePath = path.join(outputRoot, "issue-n2-numbered.docx");
@@ -255,6 +288,44 @@ const tests = {
     await navigate(page, "间隔复习");
     await page.screenshot({
       path: path.join(outputRoot, "issue-n4.png"),
+      fullPage: true
+    });
+  },
+  n5: async ({ page }) => {
+    const fixturePath = await writeWordFixture("issue-n5-source.docx", [
+      ["gamma", "伽马"],
+      ["delta", "德尔塔"]
+    ]);
+    await navigate(page, "每日单词");
+    await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
+    await page.getByRole("heading", { name: "识别到 2 组词对" }).waitFor();
+    await page.getByRole("button", { name: /加入词库/ }).click();
+    await page.getByRole("tab", { name: /导入来源/ }).click();
+    await page
+      .getByRole("button", { name: "删除来源 issue-n5-source.docx" })
+      .waitFor();
+    page.once("dialog", (dialog) => dialog.accept());
+    await page
+      .getByRole("button", { name: "删除来源 issue-n5-source.docx" })
+      .click();
+    await page.waitForTimeout(400);
+    assert(
+      (await page.getByRole("button", { name: "删除来源 issue-n5-source.docx" }).count()) === 0,
+      "导入来源删除后仍然存在"
+    );
+    const words = await readIndexedDb(page, "words");
+    assert(
+      !words.some((word) => word.english === "gamma" || word.english === "delta"),
+      "删除来源后对应单词仍保留在词库"
+    );
+    await page.getByRole("tab", { name: /全部词库/ }).click();
+    await page.getByLabel("搜索词库").fill("gamma");
+    assert(
+      (await page.locator(".word-bank-row").count()) === 0,
+      "删除来源后仍能搜索到对应单词"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-n5.png"),
       fullPage: true
     });
   },
