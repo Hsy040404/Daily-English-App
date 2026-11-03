@@ -74,13 +74,13 @@ function cell(text, options = {}) {
   });
 }
 
-function buildTable(words, direction, startIndex) {
+function buildTable(words, direction) {
   const englishToChinese = direction === "en";
   const headers = englishToChinese
     ? ["英文", "中文默写", "英文", "中文默写"]
     : ["中文", "英文默写", "中文", "英文默写"];
   const padded = [...words];
-  while (padded.length < 10) padded.push(null);
+  if (padded.length % 2 !== 0) padded.push(null);
   const rows = [
     new TableRow({
       tableHeader: true,
@@ -92,7 +92,7 @@ function buildTable(words, direction, startIndex) {
     })
   ];
 
-  for (let offset = 0; offset < 10; offset += 2) {
+  for (let offset = 0; offset < padded.length; offset += 2) {
     const left = padded[offset];
     const right = padded[offset + 1];
     const leftPrompt = left ? (englishToChinese ? left.english : left.chinese) : "";
@@ -108,24 +108,24 @@ function buildTable(words, direction, startIndex) {
         children: [
           cell(leftPrompt, {
             chinese: !englishToChinese,
-            keepNext: offset < 8
+            keepNext: offset < padded.length - 2
           }),
-          cell("", { keepNext: offset < 8 }),
+          cell("", { keepNext: offset < padded.length - 2 }),
           cell(rightPrompt, {
             chinese: !englishToChinese,
-            keepNext: offset < 8
+            keepNext: offset < padded.length - 2
           }),
-          cell("", { keepNext: offset < 8 })
+          cell("", { keepNext: offset < padded.length - 2 })
         ]
       })
     );
   }
 
-  return { table: rows, startIndex };
+  return rows;
 }
 
 function createQuizTable(words, direction) {
-  const { table } = buildTable(words, direction, 0);
+  const table = buildTable(words, direction);
   return new Table({
     rows: table,
     width: { size: 100, type: WidthType.PERCENTAGE },
@@ -144,14 +144,20 @@ function createQuizTable(words, direction) {
 function sectionHeading(pageNumber, direction, dayStart, dayEnd) {
   const directionText = direction === "en" ? "英译中" : "中译英";
   const week = Math.floor((dayStart - 1) / 6) + 1;
+  const endWeek = Math.floor((dayEnd - 1) / 6) + 1;
   const weekStart = ((dayStart - 1) % 6) + 1;
   const weekEnd = ((dayEnd - 1) % 6) + 1;
-  const dayRange =
-    weekStart === weekEnd
-      ? `Day${weekStart}`
-      : `Day${weekStart}-Day${weekEnd}`;
+  let rangeLabel;
+  if (week !== endWeek) {
+    rangeLabel = `第${week}周 Day${weekStart}-第${endWeek}周 Day${weekEnd}`;
+  } else {
+    rangeLabel =
+      weekStart === weekEnd
+        ? `第${week}周 Day${weekStart}`
+        : `第${week}周 Day${weekStart}-Day${weekEnd}`;
+  }
   return [
-    paragraph(`P${pageNumber}  ${directionText}  |  第${week}周 ${dayRange}`, {
+    paragraph(`P${pageNumber}  ${directionText}  |  ${rangeLabel}`, {
       size: 28,
       bold: true,
       font: "Microsoft YaHei",
@@ -222,8 +228,16 @@ function answerKey(words) {
 }
 
 export async function exportQuizDocx(words, options = {}) {
-  const wordsPerDay = Math.max(2, Math.min(10, Number(options.wordsPerDay || 10)));
-  const daysPerPage = Math.max(1, Math.min(3, Number(options.daysPerPage || 3)));
+  const parsedWordsPerDay = Math.floor(Number(options.wordsPerDay));
+  const parsedDaysPerPage = Math.floor(Number(options.daysPerPage));
+  const wordsPerDay =
+    Number.isFinite(parsedWordsPerDay) && parsedWordsPerDay > 0
+      ? parsedWordsPerDay
+      : 10;
+  const daysPerPage =
+    Number.isFinite(parsedDaysPerPage) && parsedDaysPerPage > 0
+      ? parsedDaysPerPage
+      : 3;
   const days = [];
   const prepared = [...words]
     .filter((word) => word.english && word.chinese)
@@ -256,7 +270,11 @@ export async function exportQuizDocx(words, options = {}) {
       chunk.forEach((dayWords, localIndex) => {
         const displayDay = ((firstDay + localIndex - 1) % 6) + 1;
         children.push(dayHeading(displayDay, dayWords));
-        children.push(createQuizTable(dayWords, direction));
+        for (let offset = 0; offset < dayWords.length; offset += 10) {
+          children.push(
+            createQuizTable(dayWords.slice(offset, offset + 10), direction)
+          );
+        }
       });
     }
   });
@@ -286,7 +304,9 @@ export async function exportQuizDocx(words, options = {}) {
 }
 
 export function quizPageCount(wordCount, wordsPerDay = 10, daysPerPage = 3) {
-  const days = Math.ceil(wordCount / Math.max(2, wordsPerDay));
-  const chunks = Math.ceil(days / Math.max(1, daysPerPage));
+  const perDay = Math.max(1, Number(wordsPerDay) || 1);
+  const perPage = Math.max(1, Number(daysPerPage) || 1);
+  const days = Math.ceil(wordCount / perDay);
+  const chunks = Math.ceil(days / perPage);
   return chunks * 2;
 }

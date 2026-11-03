@@ -111,6 +111,9 @@ export default function Words({ data, refresh, showToast }) {
         word.chinese.includes(exportQuery.trim())
     );
   }, [data.words, exportQuery]);
+  const exportSettingsValid =
+    Number(exportOptions.wordsPerDay) >= 1 &&
+    Number(exportOptions.daysPerPage) >= 1;
 
   function selectWord(nextIndex) {
     if (!todayWords.length) return;
@@ -655,7 +658,7 @@ export default function Words({ data, refresh, showToast }) {
               <button
                 className="primary-button"
                 onClick={handleExport}
-                disabled={exporting || !exportWords.length}
+                disabled={exporting || !exportWords.length || !exportSettingsValid}
               >
                 {exporting ? <LoaderCircle className="spin" size={17} /> : <Download size={17} />}
                 {exporting ? "正在生成" : "生成并下载"}
@@ -744,36 +747,36 @@ export default function Words({ data, refresh, showToast }) {
           ) : null}
           <div className="form-grid">
             <label>
-              <span>每天单词数</span>
-              <select
+              <span>每天单词数量</span>
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={exportOptions.wordsPerDay}
                 onChange={(event) =>
                   setExportOptions((value) => ({
                     ...value,
-                    wordsPerDay: Number(event.target.value)
+                    wordsPerDay: event.target.value.replace(/\D/g, "")
                   }))
                 }
-              >
-                {[5, 10].map((value) => (
-                  <option key={value} value={value}>{value} 个</option>
-                ))}
-              </select>
+                aria-label="每天单词数量"
+              />
             </label>
             <label>
               <span>每页天数</span>
-              <select
+              <input
+                type="text"
+                inputMode="numeric"
+                pattern="[0-9]*"
                 value={exportOptions.daysPerPage}
                 onChange={(event) =>
                   setExportOptions((value) => ({
                     ...value,
-                    daysPerPage: Number(event.target.value)
+                    daysPerPage: event.target.value.replace(/\D/g, "")
                   }))
                 }
-              >
-                {[2, 3].map((value) => (
-                  <option key={value} value={value}>{value} 天</option>
-                ))}
-              </select>
+                aria-label="每页天数"
+              />
             </label>
           </div>
           <label className="check-row">

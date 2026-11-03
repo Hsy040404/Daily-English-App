@@ -202,6 +202,39 @@ const tests = {
       fullPage: true
     });
   },
+  n3: async ({ page }) => {
+    await navigate(page, "每日单词");
+    await page.getByRole("button", { name: "生成默写卷" }).click();
+    const wordsPerDay = page.getByLabel("每天单词数量");
+    const daysPerPage = page.getByLabel("每页天数");
+    await wordsPerDay.fill("12abc");
+    await daysPerPage.fill("2天");
+    assert(
+      (await wordsPerDay.inputValue()) === "12" &&
+        (await daysPerPage.inputValue()) === "2",
+      "自定义数量输入框没有过滤非数字字符"
+    );
+    assert(
+      (await wordsPerDay.getAttribute("inputmode")) === "numeric" &&
+        (await daysPerPage.getAttribute("inputmode")) === "numeric",
+      "自定义数量输入框不是数字输入模式"
+    );
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /生成并下载/ }).click();
+    const download = await downloadPromise;
+    const outputPath = path.join(outputRoot, "issue-n3-custom.docx");
+    await download.saveAs(outputPath);
+    const zip = await JSZip.loadAsync(await fs.readFile(outputPath));
+    const documentXml = await zip.file("word/document.xml").async("string");
+    assert(
+      documentXml.includes("different") && documentXml.includes("little"),
+      "自定义每天 12 词时文档丢失了第 11、12 个单词"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-n3.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();
