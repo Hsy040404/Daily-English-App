@@ -3,6 +3,7 @@ import http from "node:http";
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import JSZip from "jszip";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.resolve(currentDir, "..");
@@ -254,6 +255,29 @@ const tests = {
     );
     await page.screenshot({
       path: path.join(outputRoot, "issue-5.png"),
+      fullPage: true
+    });
+  },
+  6: async ({ page }) => {
+    await navigate(page, "每日单词");
+    await page.getByRole("button", { name: "生成默写卷" }).click();
+    await page.getByLabel("选择单词").check();
+    await page.getByLabel("搜索导出单词").fill("make");
+    await page.getByLabel("选择 make").check();
+    await page.getByLabel("搜索导出单词").fill("should");
+    await page.getByLabel("选择 should").check();
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: /生成并下载/ }).click();
+    const download = await downloadPromise;
+    const outputPath = path.join(outputRoot, "issue-6-selected.docx");
+    await download.saveAs(outputPath);
+    const zip = await JSZip.loadAsync(await fs.readFile(outputPath));
+    const documentXml = await zip.file("word/document.xml").async("string");
+    assert(documentXml.includes("make"), "选择导出的 Word 缺少 make");
+    assert(documentXml.includes("should"), "选择导出的 Word 缺少 should");
+    assert(!documentXml.includes("because"), "选择导出的 Word 混入了未选单词");
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-6.png"),
       fullPage: true
     });
   }

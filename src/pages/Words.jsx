@@ -47,6 +47,9 @@ export default function Words({ data, refresh, showToast }) {
   const [importError, setImportError] = useState("");
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
+  const [exportScope, setExportScope] = useState("all");
+  const [exportSelectedIds, setExportSelectedIds] = useState([]);
+  const [exportQuery, setExportQuery] = useState("");
   const [exportOptions, setExportOptions] = useState({
     wordsPerDay: data.wordTarget,
     daysPerPage: 3,
@@ -89,6 +92,22 @@ export default function Words({ data, refresh, showToast }) {
           word.chinese.includes(bankQuery.trim()))
     );
   }, [bankQuery, bankStatusFilter, data.words]);
+  const exportWords = useMemo(
+    () =>
+      exportScope === "all"
+        ? data.words
+        : data.words.filter((word) => exportSelectedIds.includes(word.id)),
+    [data.words, exportScope, exportSelectedIds]
+  );
+  const filteredExportWords = useMemo(() => {
+    const query = exportQuery.trim().toLocaleLowerCase("en");
+    if (!query) return data.words;
+    return data.words.filter(
+      (word) =>
+        word.english.toLocaleLowerCase("en").includes(query) ||
+        word.chinese.includes(exportQuery.trim())
+    );
+  }, [data.words, exportQuery]);
 
   function selectWord(nextIndex) {
     if (!todayWords.length) return;
@@ -186,13 +205,13 @@ export default function Words({ data, refresh, showToast }) {
   }
 
   async function handleExport() {
-    if (!data.words.length) {
-      showToast("词库为空，无法生成默写卷", "error");
+    if (!exportWords.length) {
+      showToast("请至少选择一个单词", "error");
       return;
     }
     setExporting(true);
     try {
-      const blob = await exportQuizDocx(data.words, exportOptions);
+      const blob = await exportQuizDocx(exportWords, exportOptions);
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
@@ -215,6 +234,14 @@ export default function Words({ data, refresh, showToast }) {
     await updateTodayTarget(targetDraft);
     await refresh();
     showToast(`今日单词目标已调整为 ${targetDraft} 个`);
+  }
+
+  function toggleExportWord(wordId) {
+    setExportSelectedIds((current) =>
+      current.includes(wordId)
+        ? current.filter((id) => id !== wordId)
+        : [...current, wordId]
+    );
   }
 
   return (
@@ -596,7 +623,7 @@ export default function Words({ data, refresh, showToast }) {
               <button
                 className="primary-button"
                 onClick={handleExport}
-                disabled={exporting}
+                disabled={exporting || !exportWords.length}
               >
                 {exporting ? <LoaderCircle className="spin" size={17} /> : <Download size={17} />}
                 {exporting ? "正在生成" : "生成并下载"}
@@ -605,8 +632,84 @@ export default function Words({ data, refresh, showToast }) {
           }
         >
           <p className="modal-intro">
-            将使用当前词库的全部 {data.wordCount} 个词，生成英译中和中译英两份练习。
+            当前将使用 {exportWords.length} 个词，生成英译中和中译英两份练习。
           </p>
+          <div className="export-scope">
+            <label className={exportScope === "all" ? "is-active" : ""}>
+              <input
+                type="radio"
+                name="export-scope"
+                value="all"
+                checked={exportScope === "all"}
+                onChange={() => setExportScope("all")}
+              />
+              <span>
+                <strong>全部词库</strong>
+                <small>使用全部 {data.wordCount} 个词生成</small>
+              </span>
+            </label>
+            <label className={exportScope === "selected" ? "is-active" : ""}>
+              <input
+                type="radio"
+                name="export-scope"
+                value="selected"
+                checked={exportScope === "selected"}
+                onChange={() => setExportScope("selected")}
+              />
+              <span>
+                <strong>选择单词</strong>
+                <small>只生成指定单词，已选 {exportSelectedIds.length} 个</small>
+              </span>
+            </label>
+          </div>
+          {exportScope === "selected" ? (
+            <div className="export-word-picker">
+              <div className="export-word-picker__tools">
+                <label>
+                  <Search size={15} />
+                  <input
+                    value={exportQuery}
+                    onChange={(event) => setExportQuery(event.target.value)}
+                    placeholder="搜索要生成的单词"
+                    aria-label="搜索导出单词"
+                  />
+                </label>
+                <button
+                  className="text-button"
+                  onClick={() =>
+                    setExportSelectedIds((current) => [
+                      ...new Set([
+                        ...current,
+                        ...filteredExportWords.map((word) => word.id)
+                      ])
+                    ])
+                  }
+                >
+                  全选当前
+                </button>
+                <button
+                  className="text-button"
+                  onClick={() => setExportSelectedIds([])}
+                >
+                  清空
+                </button>
+              </div>
+              <div className="export-word-list">
+                {filteredExportWords.map((word) => (
+                  <label key={word.id}>
+                    <input
+                      type="checkbox"
+                      checked={exportSelectedIds.includes(word.id)}
+                      onChange={() => toggleExportWord(word.id)}
+                      aria-label={`选择 ${word.english}`}
+                    />
+                    <span>{word.english}</span>
+                    <small>{word.chinese}</small>
+                  </label>
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="form-grid">
             <label>
               <span>每天单词数</span>
@@ -660,7 +763,7 @@ export default function Words({ data, refresh, showToast }) {
           <div className="export-estimate">
             <FileUp size={18} />
             <span>
-              预计生成 {quizPageCount(data.wordCount, exportOptions.wordsPerDay, exportOptions.daysPerPage)}
+              预计生成 {quizPageCount(exportWords.length, exportOptions.wordsPerDay, exportOptions.daysPerPage)}
               页练习{exportOptions.includeAnswers ? "，另附答案页" : ""}
             </span>
           </div>
