@@ -1,17 +1,24 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   BookmarkCheck,
   Check,
   ChevronRight,
   CircleHelp,
+  FileUp,
   Highlighter,
   Languages,
   NotebookPen,
   Plus,
   Save
 } from "lucide-react";
-import { db, saveWordPairs, setSetting } from "../db";
+import {
+  db,
+  saveImportedMaterial,
+  saveWordPairs,
+  setSetting
+} from "../db";
 import { readings } from "../data/content";
+import { readingMaterialsToArticles } from "../utils/materials";
 import { localDateKey } from "../utils/date";
 import { PageHeading } from "../components/ui";
 
@@ -38,7 +45,14 @@ function ClickableParagraph({ text, onSelectWord }) {
 
 export default function Reading({ data, refresh, showToast }) {
   const [articleId, setArticleId] = useState(data.currentArticleId);
-  const article = readings.find((item) => item.id === articleId) || readings[0];
+  const [importing, setImporting] = useState(false);
+  const fileInput = useRef(null);
+  const allArticles = useMemo(
+    () => [...readings, ...readingMaterialsToArticles(data.materials)],
+    [data.materials]
+  );
+  const article =
+    allArticles.find((item) => item.id === articleId) || allArticles[0];
   const record = data.readingRecords.find((item) => item.id === article.id);
   const [notes, setNotes] = useState(record?.notes || "");
   const [keySentence, setKeySentence] = useState(record?.keySentence || "");
@@ -51,7 +65,7 @@ export default function Reading({ data, refresh, showToast }) {
 
   const completedCount = data.readingRecords.filter((item) => item.completedDate).length;
   const completedToday = record?.completedDate === localDateKey();
-  const completion = (completedCount / readings.length) * 100;
+  const completion = (completedCount / allArticles.length) * 100;
 
   useEffect(() => {
     const nextRecord = data.readingRecords.find((item) => item.id === article.id);
@@ -63,7 +77,7 @@ export default function Reading({ data, refresh, showToast }) {
         : null
     );
     setSavedState("已保存");
-  }, [article.id, data.readingRecords]);
+  }, [article.id]);
 
   const wordLookup = useMemo(
     () => new Map(data.words.map((word) => [word.id, word])),
@@ -75,6 +89,33 @@ export default function Reading({ data, refresh, showToast }) {
     setSelectedWord("");
     setDefinition("");
     await setSetting("currentArticleId", id);
+  }
+
+  async function handleImport(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    try {
+      const { extractPlainTextFromFile } = await import("../utils/importWords");
+      const extracted = await extractPlainTextFromFile(file);
+      const id = await saveImportedMaterial({
+        module: "reading",
+        fileName: file.name,
+        format: extracted.format,
+        text: extracted.text
+      });
+      const nextArticleId = `material-${id}`;
+      await setSetting("currentArticleId", nextArticleId);
+      setArticleId(nextArticleId);
+      await refresh();
+      showToast(`阅读材料“${file.name}”已导入`);
+    } catch (error) {
+      console.error(error);
+      showToast(`导入阅读材料失败：${error.message}`, "error");
+    } finally {
+      setImporting(false);
+    }
   }
 
   async function persist(patch, message) {
@@ -156,15 +197,32 @@ export default function Reading({ data, refresh, showToast }) {
         title="英语阅读"
         description="读完整意思，而不是逐字翻译。点按单词可加入生词本。"
         actions={
-          <div className="reading-progress">
-            <span>{completedCount}/{readings.length} 篇完成</span>
-            <div><span style={{ width: `${completion}%` }} /></div>
-          </div>
+          <>
+            <input
+              ref={fileInput}
+              className="visually-hidden"
+              type="file"
+              accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              aria-label="导入阅读文件"
+              onChange={handleImport}
+            />
+            <button
+              className="secondary-button"
+              onClick={() => fileInput.current?.click()}
+              disabled={importing}
+            >
+              <FileUp size={17} /> {importing ? "正在导入" : "导入 Word / PDF"}
+            </button>
+            <div className="reading-progress">
+              <span>{completedCount}/{allArticles.length} 篇完成</span>
+              <div><span style={{ width: `${completion}%` }} /></div>
+            </div>
+          </>
         }
       />
 
       <div className="article-tabs">
-        {readings.map((item, index) => {
+        {allArticles.map((item, index) => {
           const articleRecord = data.readingRecords.find(
             (row) => row.id === item.id
           );
@@ -177,7 +235,10 @@ export default function Reading({ data, refresh, showToast }) {
               <span>{String(index + 1).padStart(2, "0")}</span>
               <div>
                 <strong>{item.title}</strong>
-                <small>{item.minutes} 分钟 · {item.difficulty}</small>
+                <small>
+                  {item.minutes} 分钟 · {item.difficulty}
+                  {item.imported ? " · 导入" : ""}
+                </small>
               </div>
               {articleRecord?.completedDate ? (
                 <Check className="article-tab-check" size={17} />
@@ -196,6 +257,9 @@ export default function Reading({ data, refresh, showToast }) {
               <span className="eyebrow">ARTICLE · {article.difficulty}</span>
               <h2>{article.title}</h2>
               <p>{article.subtitle}</p>
+              {article.imported ? (
+                <span className="article-source">来源：{article.sourceName}</span>
+              ) : null}
             </div>
             <span className="reading-time">{article.minutes} MIN</span>
           </header>
@@ -214,39 +278,45 @@ export default function Reading({ data, refresh, showToast }) {
             ))}
           </div>
 
-          <section className="comprehension">
-            <div className="comprehension-title">
-              <CircleHelp size={19} />
-              <span>理解检查</span>
+          {article.question ? (
+            <section className="comprehension">
+              <div className="comprehension-title">
+                <CircleHelp size={19} />
+                <span>理解检查</span>
+              </div>
+              <h3>{article.question.prompt}</h3>
+              <div className="answer-options">
+                {article.question.options.map((option, index) => {
+                  const answered = selectedAnswer !== null;
+                  const isCorrect = index === article.question.answer;
+                  const isSelected = selectedAnswer === index;
+                  return (
+                    <button
+                      key={option}
+                      className={`${isSelected ? "is-selected" : ""} ${
+                        answered && isSelected
+                          ? isCorrect
+                            ? "is-correct"
+                            : "is-wrong"
+                          : ""
+                      }`}
+                      onClick={() => selectAnswer(index)}
+                    >
+                      <span>{String.fromCharCode(65 + index)}</span>
+                      {option}
+                      {answered && isSelected ? (
+                        <strong>{isCorrect ? "正确" : "再读一遍"}</strong>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+          ) : (
+            <div className="imported-reading-note">
+              导入材料不包含预设理解题，可继续使用点词查义和阅读笔记。
             </div>
-            <h3>{article.question.prompt}</h3>
-            <div className="answer-options">
-              {article.question.options.map((option, index) => {
-                const answered = selectedAnswer !== null;
-                const isCorrect = index === article.question.answer;
-                const isSelected = selectedAnswer === index;
-                return (
-                  <button
-                    key={option}
-                    className={`${isSelected ? "is-selected" : ""} ${
-                      answered && isSelected
-                        ? isCorrect
-                          ? "is-correct"
-                          : "is-wrong"
-                        : ""
-                    }`}
-                    onClick={() => selectAnswer(index)}
-                  >
-                    <span>{String.fromCharCode(65 + index)}</span>
-                    {option}
-                    {answered && isSelected ? (
-                      <strong>{isCorrect ? "正确" : "再读一遍"}</strong>
-                    ) : null}
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          )}
 
           <footer className="article-footer">
             <button className="primary-button" onClick={markComplete}>

@@ -249,3 +249,35 @@ export async function parseWordFile(file) {
   if (extension === "pdf") return parsePdf(file);
   throw new Error("目前只支持 .docx 和文字型 .pdf 文件");
 }
+
+export async function extractPlainTextFromFile(file) {
+  const extension = file.name.split(".").pop()?.toLowerCase();
+  if (extension === "docx") {
+    const result = await mammoth.extractRawText({
+      arrayBuffer: await file.arrayBuffer()
+    });
+    return {
+      text: result.value.trim(),
+      format: "DOCX"
+    };
+  }
+  if (extension === "pdf") {
+    const data = new Uint8Array(await file.arrayBuffer());
+    const pdf = await pdfjsLib.getDocument({
+      data,
+      useSystemFonts: true
+    }).promise;
+    const pages = [];
+    for (let pageNumber = 1; pageNumber <= pdf.numPages; pageNumber += 1) {
+      const page = await pdf.getPage(pageNumber);
+      const content = await page.getTextContent();
+      const lines = groupPdfRows(content.items).map((row) => row.join("  "));
+      pages.push(lines.join("\n"));
+    }
+    return {
+      text: pages.join("\n\n").trim(),
+      format: "PDF"
+    };
+  }
+  throw new Error("目前只支持 .docx 和文字型 .pdf 文件");
+}

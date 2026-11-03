@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import {
   Clock3,
+  FileText,
+  FileUp,
   Lightbulb,
   Mic2,
   Pause,
@@ -10,7 +12,7 @@ import {
   Square,
   Trash2
 } from "lucide-react";
-import { db } from "../db";
+import { db, saveImportedMaterial } from "../db";
 import { speakingPrompts } from "../data/content";
 import { dayOfYear, localDateKey } from "../utils/date";
 import { PageHeading } from "../components/ui";
@@ -29,11 +31,20 @@ export default function Speaking({ data, refresh, showToast }) {
   const [note, setNote] = useState(data.todaySpeaking?.note || "");
   const [rating, setRating] = useState(data.todaySpeaking?.rating || 0);
   const [audioUrl, setAudioUrl] = useState("");
+  const [activeMaterialId, setActiveMaterialId] = useState(null);
+  const [importing, setImporting] = useState(false);
   const recorder = useRef(null);
   const stream = useRef(null);
   const chunks = useRef([]);
   const startedAt = useRef(0);
   const timer = useRef(null);
+  const fileInput = useRef(null);
+  const speakingMaterials = data.materials.filter(
+    (material) => material.module === "speaking"
+  );
+  const activeMaterial = speakingMaterials.find(
+    (material) => material.id === activeMaterialId
+  );
 
   useEffect(() => {
     setNote(data.todaySpeaking?.note || "");
@@ -156,20 +167,100 @@ export default function Speaking({ data, refresh, showToast }) {
     showToast("今天的口语记录已删除");
   }
 
+  async function handleImport(event) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) return;
+    setImporting(true);
+    try {
+      const { extractPlainTextFromFile } = await import("../utils/importWords");
+      const extracted = await extractPlainTextFromFile(file);
+      const id = await saveImportedMaterial({
+        module: "speaking",
+        fileName: file.name,
+        format: extracted.format,
+        text: extracted.text
+      });
+      await refresh();
+      setActiveMaterialId(id);
+      showToast(`口语素材“${file.name}”已导入`);
+    } catch (error) {
+      console.error(error);
+      showToast(`导入口语素材失败：${error.message}`, "error");
+    } finally {
+      setImporting(false);
+    }
+  }
+
   return (
     <div className="page speaking-page">
       <PageHeading
         eyebrow="SPEAKING"
         title="口语练习"
         description="给自己一个明确的问题、一段完整的回答，再回听一个值得改进的细节。"
+        actions={
+          <>
+            <input
+              ref={fileInput}
+              className="visually-hidden"
+              type="file"
+              accept=".docx,.pdf,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              aria-label="导入口语文件"
+              onChange={handleImport}
+            />
+            <button
+              className="secondary-button"
+              onClick={() => fileInput.current?.click()}
+              disabled={importing}
+            >
+              <FileUp size={17} /> {importing ? "正在导入" : "导入 Word / PDF"}
+            </button>
+          </>
+        }
       />
+
+      <section className="material-strip panel">
+        <div>
+          <span className="eyebrow">SPEAKING SOURCES</span>
+          <strong>口语素材</strong>
+        </div>
+        <div className="material-strip__list">
+          <button
+            className={!activeMaterial ? "is-active" : ""}
+            onClick={() => setActiveMaterialId(null)}
+          >
+            每日话题
+          </button>
+          {speakingMaterials.map((material) => (
+            <button
+              key={material.id}
+              className={activeMaterialId === material.id ? "is-active" : ""}
+              onClick={() => setActiveMaterialId(material.id)}
+              title={material.fileName}
+            >
+              <FileText size={14} />
+              {material.fileName}
+            </button>
+          ))}
+        </div>
+      </section>
 
       <div className="speaking-layout">
         <section className="speaking-prompt panel">
-          <div className="prompt-number">{String(promptIndex + 1).padStart(2, "0")}</div>
-          <span className="eyebrow">TODAY'S TOPIC</span>
-          <h2>{prompt.title}</h2>
-          <p className="speaking-question">{prompt.prompt}</p>
+          <div className="prompt-number">
+            {activeMaterial ? "DOC" : String(promptIndex + 1).padStart(2, "0")}
+          </div>
+          <span className="eyebrow">
+            {activeMaterial ? "IMPORTED MATERIAL" : "TODAY'S TOPIC"}
+          </span>
+          <h2>{activeMaterial ? activeMaterial.fileName : prompt.title}</h2>
+          <p
+            className={`speaking-question ${
+              activeMaterial ? "speaking-question--imported" : ""
+            }`}
+          >
+            {activeMaterial ? activeMaterial.text : prompt.prompt}
+          </p>
           <div className="prompt-tips">
             {prompt.tips.map((tip, tipIndex) => (
               <div key={tip}>

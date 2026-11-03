@@ -12,6 +12,9 @@ const outputRoot =
   "C:\\Users\\86152\\.codex\\visualizations\\2026\\11\\02\\01a19cca-5312-7ea3-9772-54051b508846\\issue-tests";
 const edgePath =
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+const sourceDocx = "C:\\Users\\86152\\Desktop\\中考688词汇默写卷.docx";
+const sourcePdf =
+  "C:\\Users\\86152\\.codex\\visualizations\\2026\\11\\02\\01a19cca-5312-7ea3-9772-54051b508846\\docx-review\\source-preview.pdf";
 const issue = String(process.argv[2] || "");
 
 const mimeTypes = {
@@ -278,6 +281,48 @@ const tests = {
     assert(!documentXml.includes("because"), "选择导出的 Word 混入了未选单词");
     await page.screenshot({
       path: path.join(outputRoot, "issue-6.png"),
+      fullPage: true
+    });
+  },
+  7: async ({ page }) => {
+    await navigate(page, "口语练习");
+    await page.getByLabel("导入口语文件").setInputFiles(sourceDocx);
+    await page
+      .getByRole("button", { name: /中考688词汇默写卷\.docx/ })
+      .waitFor();
+    await page
+      .getByRole("button", { name: /中考688词汇默写卷\.docx/ })
+      .click();
+    assert(
+      (await page.locator(".speaking-question").innerText()).includes("make"),
+      "导入的口语 Word 素材没有显示正文"
+    );
+
+    await navigate(page, "英语阅读");
+    await page.getByLabel("导入阅读文件").setInputFiles(sourcePdf);
+    const importedTab = page
+      .getByRole("button", { name: /source-preview/ })
+      .first();
+    await importedTab.waitFor({ timeout: 30_000 });
+    await importedTab.click();
+    assert(
+      (await page.locator(".article-body").innerText()).includes("make"),
+      "导入的 PDF 阅读材料没有显示正文"
+    );
+
+    await page.reload({ waitUntil: "networkidle" });
+    await navigate(page, "口语练习");
+    assert(
+      (await page.getByRole("button", { name: /中考688词汇默写卷\.docx/ }).count()) > 0,
+      "刷新后口语导入来源丢失"
+    );
+    await navigate(page, "英语阅读");
+    assert(
+      (await page.getByRole("button", { name: /source-preview/ }).count()) > 0,
+      "刷新后阅读导入来源丢失"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-7.png"),
       fullPage: true
     });
   }

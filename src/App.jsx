@@ -19,6 +19,7 @@ import {
   saveWordPairs
 } from "./db";
 import { readings } from "./data/content";
+import { readingMaterialsToArticles } from "./utils/materials";
 import { localDateKey } from "./utils/date";
 import { Toast } from "./components/ui";
 import Home from "./pages/Home";
@@ -77,7 +78,8 @@ async function loadSnapshot() {
     currentArticleId,
     memo,
     todayReviewCount,
-    knownCount
+    knownCount,
+    materials
   ] = await Promise.all([
     db.words.orderBy("order").toArray(),
     getDueWords(today),
@@ -88,14 +90,20 @@ async function loadSnapshot() {
     getSetting("currentArticleId", defaults.currentArticleId),
     db.memos.get(today),
     db.reviewLogs.where("date").equals(today).count(),
-    db.words.where("status").equals("known").count()
+    db.words.where("status").equals("known").count(),
+    db.materials.toArray()
   ]);
   const wordMap = new Map(words.map((word) => [word.id, word]));
   const todayWords = assignment.wordIds
     .map((id) => wordMap.get(id))
     .filter(Boolean);
+  const readingArticles = [
+    ...readings,
+    ...readingMaterialsToArticles(materials)
+  ];
   const article =
-    readings.find((item) => item.id === currentArticleId) || readings[0];
+    readingArticles.find((item) => item.id === currentArticleId) ||
+    readingArticles[0];
   const statusCounts = {
     unfamiliar: words.filter((word) => word.status === "unfamiliar").length,
     learning: words.filter((word) => word.status === "learning").length,
@@ -120,6 +128,7 @@ async function loadSnapshot() {
     statusCounts,
     todaySpeaking: todaySpeaking || null,
     readingRecords,
+    materials,
     currentArticleId: article.id,
     articleTitle: article.title,
     articleMinutes: article.minutes,

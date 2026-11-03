@@ -24,6 +24,18 @@ db.version(2).stores({
   studyLogs: "++id, &[date+wordId], date, wordId, rating"
 });
 
+db.version(3).stores({
+  words: "&id, &english, status, dueDate, order, createdAt",
+  settings: "&key",
+  assignments: "&date",
+  speaking: "&date",
+  readings: "&id",
+  memos: "&date",
+  reviewLogs: "++id, date, english",
+  studyLogs: "++id, &[date+wordId], date, wordId, rating",
+  materials: "++id, &[module+fileName], module, importedAt"
+});
+
 export const defaults = {
   wordTarget: 10,
   reviewTarget: 20,
@@ -225,6 +237,34 @@ export async function updateTodayTarget(target) {
   }
 
   await db.assignments.update(date, { wordIds, target: safeTarget });
+}
+
+export async function saveImportedMaterial({
+  module,
+  fileName,
+  format,
+  text
+}) {
+  if (!["speaking", "reading"].includes(module)) {
+    throw new Error("未知的素材模块");
+  }
+  if (!text?.trim()) throw new Error("文件中没有可读取的文字");
+  const existing = await db.materials
+    .where("[module+fileName]")
+    .equals([module, fileName])
+    .first();
+  const material = {
+    module,
+    fileName,
+    format,
+    text: text.trim(),
+    importedAt: new Date().toISOString()
+  };
+  if (existing) {
+    await db.materials.update(existing.id, material);
+    return existing.id;
+  }
+  return db.materials.add(material);
 }
 
 export async function scheduleReview(word, rating) {
