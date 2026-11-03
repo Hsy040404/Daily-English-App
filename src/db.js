@@ -196,7 +196,10 @@ export async function markWordStudy(
 
 export async function updateTodayTarget(target) {
   const date = localDateKey();
-  const safeTarget = Math.max(1, Math.min(50, Number(target)));
+  const parsedTarget = Number(target);
+  const safeTarget = Number.isFinite(parsedTarget)
+    ? Math.max(1, Math.floor(parsedTarget))
+    : 1;
   await setSetting("wordTarget", safeTarget);
   const assignment = await ensureTodayAssignment();
   const words = await db.words.orderBy("order").toArray();

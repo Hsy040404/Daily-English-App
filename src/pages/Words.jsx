@@ -309,7 +309,6 @@ export default function Words({ data, refresh, showToast }) {
             <input
               type="number"
               min="1"
-              max="50"
               value={targetDraft}
               onChange={(event) => setTargetDraft(Number(event.target.value))}
             />

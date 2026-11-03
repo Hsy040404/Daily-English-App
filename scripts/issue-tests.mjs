@@ -178,6 +178,29 @@ const tests = {
       path: path.join(outputRoot, "issue-3.png"),
       fullPage: true
     });
+  },
+  4: async ({ page }) => {
+    await navigate(page, "每日单词");
+    const targetInput = page.locator(".target-control input");
+    await targetInput.fill("1000");
+    await page.locator(".target-control button").click();
+    await page.waitForTimeout(400);
+    assert(
+      (await targetInput.inputValue()) === "1000",
+      "今日目标不应被限制为 50"
+    );
+    assert(
+      (await page.locator(".word-focus__top .quiet-label").innerText()).trim() ===
+        "1 / 120",
+      "扩大今日目标后没有排入全部可用单词"
+    );
+    const settings = await readIndexedDb(page, "settings");
+    const target = settings.find((item) => item.key === "wordTarget");
+    assert(target?.value === 1000, "无限目标没有保存在本地设置中");
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-4.png"),
+      fullPage: true
+    });
   }
 };
 
