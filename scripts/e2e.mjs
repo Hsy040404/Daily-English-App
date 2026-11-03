@@ -2,7 +2,7 @@ import { chromium } from "playwright-core";
 import fs from "node:fs/promises";
 import path from "node:path";
 
-const baseUrl = "http://127.0.0.1:4173";
+const baseUrl = process.env.BASE_URL || "http://127.0.0.1:4173";
 const edgePath =
   "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
 const outputDir =
