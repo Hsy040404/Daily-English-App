@@ -201,6 +201,61 @@ const tests = {
       path: path.join(outputRoot, "issue-4.png"),
       fullPage: true
     });
+  },
+  5: async ({ page }) => {
+    await navigate(page, "每日单词");
+    await page.getByRole("button", { name: /还不熟/ }).click();
+    await page.waitForTimeout(250);
+    await page.getByRole("button", { name: /有印象/ }).click();
+    await page.waitForTimeout(250);
+    await page.getByRole("button", { name: /已经认识/ }).click();
+    await page.waitForTimeout(300);
+    await page.getByRole("tab", { name: /全部词库/ }).click();
+
+    const categoryExpectations = [
+      ["还不熟", "unfamiliar", "make"],
+      ["有印象", "learning", "should"],
+      ["已经认识", "known", "because"]
+    ];
+    for (const [categoryIndex, [label, status, word]] of categoryExpectations.entries()) {
+      const categoryButton = page
+        .locator(".bank-status-tabs button")
+        .nth(categoryIndex + 1);
+      await categoryButton.click();
+      await page
+        .locator('.bank-status-tabs button[aria-pressed="true"]')
+        .filter({ hasText: label })
+        .waitFor();
+      const rows = page.locator(".word-bank-row");
+      assert((await rows.count()) === 1, `${label}分类数量不正确`);
+      assert(
+        (await rows.first().innerText()).includes(word),
+        `${label}分类中没有刚标记的单词`
+      );
+      const settings = await readIndexedDb(page, "words");
+      assert(
+        settings.some((item) => item.english === word && item.status === status),
+        `${label}按钮没有写入对应掌握状态`
+      );
+    }
+
+    await navigate(page, "间隔复习");
+    assert(
+      (await page.locator(".review-category-grid").innerText()).includes("还不熟"),
+      "复习页没有按掌握状态分类"
+    );
+    await page
+      .locator(".review-category-grid button")
+      .filter({ hasText: "还不熟" })
+      .click();
+    assert(
+      (await page.locator(".review-card h2").innerText()).trim() === "make",
+      "按“还不熟”分类没有启动对应单词的复习"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-5.png"),
+      fullPage: true
+    });
   }
 };
 

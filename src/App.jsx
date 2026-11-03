@@ -96,6 +96,12 @@ async function loadSnapshot() {
     .filter(Boolean);
   const article =
     readings.find((item) => item.id === currentArticleId) || readings[0];
+  const statusCounts = {
+    unfamiliar: words.filter((word) => word.status === "unfamiliar").length,
+    learning: words.filter((word) => word.status === "learning").length,
+    known: words.filter((word) => word.status === "known").length,
+    new: words.filter((word) => word.status === "new").length
+  };
 
   return {
     today,
@@ -111,6 +117,7 @@ async function loadSnapshot() {
     dueCount: dueWords.length,
     todayReviewCount,
     knownCount,
+    statusCounts,
     todaySpeaking: todaySpeaking || null,
     readingRecords,
     currentArticleId: article.id,

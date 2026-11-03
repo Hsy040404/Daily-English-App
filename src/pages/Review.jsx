@@ -59,11 +59,19 @@ export default function Review({ data, refresh, showToast, navigate }) {
 
   function start(fallback = false) {
     const words = fallback ? data.todayWords : data.dueWords.slice(0, data.reviewTarget);
+    beginSession(words);
+  }
+
+  function beginSession(words) {
     setSession(words);
     setIndex(0);
     setAnswer("");
     setRevealed(false);
     setResults({ again: 0, hard: 0, good: 0 });
+  }
+
+  function startCategory(status) {
+    beginSession(data.words.filter((word) => word.status === status));
   }
 
   async function rate(rating) {
@@ -143,6 +151,37 @@ export default function Review({ data, refresh, showToast, navigate }) {
               <Sparkles size={20} />
               <span>已掌握</span>
               <strong>{data.knownCount}</strong>
+            </div>
+          </section>
+
+          <section className="panel review-categories">
+            <div className="section-heading">
+              <div>
+                <span className="eyebrow">REVIEW BY STATUS</span>
+                <h2>按掌握状态复习</h2>
+              </div>
+              <span className="quiet-label">三类可随时单独复习</span>
+            </div>
+            <div className="review-category-grid">
+              {[
+                ["unfamiliar", "还不熟", "需要重新建立记忆", data.statusCounts.unfamiliar],
+                ["learning", "有印象", "需要增加回忆次数", data.statusCounts.learning],
+                ["known", "已经认识", "用更长间隔巩固", data.statusCounts.known]
+              ].map(([status, label, description, count]) => (
+                <button
+                  key={status}
+                  onClick={() => startCategory(status)}
+                  disabled={!count}
+                >
+                  <span className={`category-dot category-dot--${status}`} />
+                  <div>
+                    <strong>{label}</strong>
+                    <small>{description}</small>
+                  </div>
+                  <b>{count}</b>
+                  <ArrowRight size={16} />
+                </button>
+              ))}
             </div>
           </section>
 

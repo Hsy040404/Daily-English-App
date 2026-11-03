@@ -37,6 +37,7 @@ export default function Words({ data, refresh, showToast }) {
   const [index, setIndex] = useState(0);
   const [activeView, setActiveView] = useState("today");
   const [bankQuery, setBankQuery] = useState("");
+  const [bankStatusFilter, setBankStatusFilter] = useState("all");
   const [bankStudyDate, setBankStudyDate] = useState(data.today);
   const [bankSelectedWord, setBankSelectedWord] = useState(null);
   const [revealed, setRevealed] = useState(false);
@@ -80,13 +81,14 @@ export default function Words({ data, refresh, showToast }) {
   }, [data.words]);
   const filteredBankWords = useMemo(() => {
     const query = bankQuery.trim().toLocaleLowerCase("en");
-    if (!query) return data.words;
     return data.words.filter(
       (word) =>
-        word.english.toLocaleLowerCase("en").includes(query) ||
-        word.chinese.includes(bankQuery.trim())
+        (bankStatusFilter === "all" || word.status === bankStatusFilter) &&
+        (!query ||
+          word.english.toLocaleLowerCase("en").includes(query) ||
+          word.chinese.includes(bankQuery.trim()))
     );
-  }, [bankQuery, data.words]);
+  }, [bankQuery, bankStatusFilter, data.words]);
 
   function selectWord(nextIndex) {
     if (!todayWords.length) return;
@@ -350,6 +352,23 @@ export default function Words({ data, refresh, showToast }) {
           <div className="word-bank__meta">
             <span>显示 {filteredBankWords.length} / {data.words.length} 个词</span>
             <span>英文 · 中文释义 · 状态 · 来源</span>
+          </div>
+          <div className="bank-status-tabs" aria-label="按掌握状态筛选">
+            {[
+              ["all", "全部", data.words.length],
+              ["unfamiliar", "还不熟", data.statusCounts.unfamiliar],
+              ["learning", "有印象", data.statusCounts.learning],
+              ["known", "已经认识", data.statusCounts.known]
+            ].map(([status, label, count]) => (
+              <button
+                key={status}
+                className={bankStatusFilter === status ? "is-active" : ""}
+                onClick={() => setBankStatusFilter(status)}
+                aria-pressed={bankStatusFilter === status}
+              >
+                {label}<span>{count}</span>
+              </button>
+            ))}
           </div>
           <div className="word-bank-list">
             {filteredBankWords.map((word) => (
