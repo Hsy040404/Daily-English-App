@@ -1812,6 +1812,48 @@ input::placeholder {
   color: #fff;
 }
 
+.material-item {
+  display: flex;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbf9f3;
+}
+
+.material-item.is-active {
+  border-color: var(--forest);
+  background: var(--forest);
+  color: #fff;
+}
+
+.material-item .material-select {
+  max-width: 230px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.material-item.is-active .material-select {
+  color: #fff;
+}
+
+.material-delete {
+  width: 30px;
+  padding: 0 !important;
+  border: 0 !important;
+  border-left: 1px solid var(--line) !important;
+  border-radius: 0 !important;
+  background: #fff8f5 !important;
+  color: #a65d4e !important;
+}
+
+.material-item.is-active .material-delete {
+  border-left-color: rgba(255, 255, 255, 0.16) !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f1baac !important;
+}
+
 .speaking-prompt {
   position: relative;
   overflow: hidden;

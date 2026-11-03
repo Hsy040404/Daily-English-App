@@ -332,6 +332,13 @@ export async function deleteWordSource(sourceName) {
   };
 }
 
+export async function deleteImportedMaterial(id) {
+  const material = await db.materials.get(Number(id));
+  if (!material) return false;
+  await db.materials.delete(material.id);
+  return true;
+}
+
 export async function scheduleReview(word, rating) {
   const today = localDateKey();
   const stage = Number(word.reviewStage || 0);

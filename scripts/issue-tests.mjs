@@ -329,6 +329,33 @@ const tests = {
       fullPage: true
     });
   },
+  n6: async ({ page }) => {
+    await navigate(page, "口语练习");
+    await page.getByLabel("导入口语文件").setInputFiles(sourceDocx);
+    const deleteButton = page.getByRole("button", {
+      name: "删除口语素材 中考688词汇默写卷.docx"
+    });
+    await deleteButton.waitFor();
+    page.once("dialog", (dialog) => dialog.accept());
+    await deleteButton.click();
+    await page.waitForTimeout(350);
+    assert((await deleteButton.count()) === 0, "删除后口语素材仍然存在");
+    let materials = await readIndexedDb(page, "materials");
+    assert(
+      !materials.some((material) => material.module === "speaking"),
+      "删除后口语素材仍保存在数据库中"
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await navigate(page, "口语练习");
+    assert(
+      (await page.getByRole("button", { name: /中考688词汇默写卷\.docx/ }).count()) === 0,
+      "刷新后已删除的口语素材重新出现"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-n6.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();

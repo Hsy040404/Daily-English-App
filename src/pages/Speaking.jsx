@@ -12,7 +12,7 @@ import {
   Square,
   Trash2
 } from "lucide-react";
-import { db, saveImportedMaterial } from "../db";
+import { db, deleteImportedMaterial, saveImportedMaterial } from "../db";
 import { speakingPrompts } from "../data/content";
 import { dayOfYear, localDateKey } from "../utils/date";
 import { PageHeading } from "../components/ui";
@@ -192,6 +192,14 @@ export default function Speaking({ data, refresh, showToast }) {
     }
   }
 
+  async function removeMaterial(material) {
+    if (!window.confirm(`确定删除口语素材“${material.fileName}”吗？`)) return;
+    await deleteImportedMaterial(material.id);
+    if (activeMaterialId === material.id) setActiveMaterialId(null);
+    await refresh();
+    showToast(`口语素材“${material.fileName}”已删除`);
+  }
+
   return (
     <div className="page speaking-page">
       <PageHeading
@@ -232,18 +240,31 @@ export default function Speaking({ data, refresh, showToast }) {
             每日话题
           </button>
           {speakingMaterials.map((material) => (
-            <button
+            <div
               key={material.id}
-              className={activeMaterialId === material.id ? "is-active" : ""}
-              onClick={() => setActiveMaterialId(material.id)}
-              title={material.fileName}
+              className={`material-item ${
+                activeMaterialId === material.id ? "is-active" : ""
+              }`}
             >
-              <FileText size={14} />
-              <span>{material.fileName}</span>
-              <small className="material-format">
-                {material.format} · {new Date(material.importedAt).toLocaleDateString("zh-CN")}
-              </small>
-            </button>
+              <button
+                className="material-select"
+                onClick={() => setActiveMaterialId(material.id)}
+                title={material.fileName}
+              >
+                <FileText size={14} />
+                <span>{material.fileName}</span>
+                <small className="material-format">
+                  {material.format} · {new Date(material.importedAt).toLocaleDateString("zh-CN")}
+                </small>
+              </button>
+              <button
+                className="material-delete"
+                onClick={() => removeMaterial(material)}
+                aria-label={`删除口语素材 ${material.fileName}`}
+              >
+                <Trash2 size={13} />
+              </button>
+            </div>
           ))}
         </div>
       </section>
