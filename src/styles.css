@@ -21,6 +21,7 @@
   --danger: #a64c3e;
   --shadow: 0 16px 43px rgba(28, 40, 34, 0.08);
   --radius: 20px;
+  --english-font: "Times New Roman", Georgia, serif;
 }
 
 * {
@@ -1305,7 +1306,7 @@ input::placeholder {
 }
 
 .word-bank-row > strong {
-  font-family: Georgia, serif;
+  font-family: var(--english-font);
   font-size: 14px;
   font-weight: 600;
 }
@@ -1488,7 +1489,7 @@ input::placeholder {
 
 .word-display h2 {
   margin: 10px 0 13px;
-  font-family: Georgia, "Times New Roman", serif;
+  font-family: var(--english-font);
   font-size: clamp(52px, 7vw, 82px);
   font-weight: 400;
   line-height: 1;
@@ -1651,7 +1652,7 @@ input::placeholder {
   background: transparent;
   color: #59665f;
   cursor: pointer;
-  font-family: Georgia, serif;
+  font-family: var(--english-font);
   font-size: 13px;
   text-align: left;
 }
@@ -3106,7 +3107,7 @@ input::placeholder {
 }
 
 .preview-table span:first-child {
-  font-family: Georgia, serif;
+  font-family: var(--english-font);
   font-size: 11px;
 }
 
@@ -3227,7 +3228,7 @@ input::placeholder {
 }
 
 .export-word-list span {
-  font-family: Georgia, serif;
+  font-family: var(--english-font);
   font-size: 11px;
 }
 

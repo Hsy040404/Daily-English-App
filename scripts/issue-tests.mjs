@@ -4,6 +4,14 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import JSZip from "jszip";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  Table,
+  TableCell,
+  TableRow
+} from "docx";
 
 const currentDir = path.dirname(fileURLToPath(import.meta.url));
 const projectDir = path.resolve(currentDir, "..");
@@ -130,6 +138,70 @@ async function readIndexedDb(page, storeName) {
 }
 
 const tests = {
+  n2: async ({ page }) => {
+    const fixturePath = path.join(outputRoot, "issue-n2-numbered.docx");
+    const fixture = new Document({
+      sections: [
+        {
+          children: [
+            new Table({
+              rows: [
+                new TableRow({
+                  children: ["英文", "中文"].map(
+                    (text) =>
+                      new TableCell({ children: [new Paragraph(text)] })
+                  )
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({ children: [new Paragraph("1. alpha")] }),
+                    new TableCell({ children: [new Paragraph("甲")] })
+                  ]
+                }),
+                new TableRow({
+                  children: [
+                    new TableCell({ children: [new Paragraph("2) beta")] }),
+                    new TableCell({ children: [new Paragraph("乙")] })
+                  ]
+                })
+              ]
+            })
+          ]
+        }
+      ]
+    });
+    await fs.writeFile(fixturePath, await Packer.toBuffer(fixture));
+
+    await navigate(page, "每日单词");
+    await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
+    await page.getByRole("heading", { name: "识别到 2 组词对" }).waitFor();
+    const preview = await page.locator(".preview-table").innerText();
+    assert(preview.includes("alpha") && preview.includes("beta"), "清洗后缺少单词");
+    assert(!/\d/.test(preview), "导入预览中仍然包含数字");
+    await page.getByRole("button", { name: /加入词库/ }).click();
+    await page.getByRole("tab", { name: /全部词库/ }).click();
+    await page.getByLabel("搜索词库").fill("alpha");
+    const row = page.locator(".word-bank-row").first();
+    await row.waitFor();
+    assert(!/\d/.test(await row.locator("strong").innerText()), "入库单词仍包含数字");
+    const fontFamily = await row
+      .locator("strong")
+      .evaluate((element) => getComputedStyle(element).fontFamily);
+    assert(
+      fontFamily.includes("Times New Roman"),
+      "导入单词没有使用统一英文字体"
+    );
+    const words = await readIndexedDb(page, "words");
+    assert(
+      words.some((word) => word.english === "alpha") &&
+        words.some((word) => word.english === "beta"),
+      "清洗后的新单词没有写入词库"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-n2.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();

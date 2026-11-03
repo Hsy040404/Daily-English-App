@@ -20,6 +20,7 @@ const PAGE_WIDTH = 11906;
 const PAGE_HEIGHT = 16838;
 const CELL_BORDER = "AEB8B3";
 const HEADER_FILL = "F1F4F2";
+const ENGLISH_FONT = "Times New Roman";
 
 function textRun(text, options = {}) {
   return new TextRun({
@@ -63,7 +64,7 @@ function cell(text, options = {}) {
         spacing: { before: 0, after: 0 },
         children: [
           textRun(text, {
-            font: options.chinese ? "SimSun" : "Arial",
+            font: options.chinese ? "SimSun" : ENGLISH_FONT,
             size: options.header ? 21 : 20,
             bold: Boolean(options.header)
           })

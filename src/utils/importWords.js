@@ -1,6 +1,7 @@
 import mammoth from "mammoth";
 import * as pdfjsLib from "pdfjs-dist";
 import pdfWorkerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+import { normalizeEnglishTerm } from "./wordText";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = pdfWorkerUrl;
 
@@ -44,7 +45,7 @@ function isChinesePrompt(text) {
 function dedupePairs(pairs) {
   const seen = new Map();
   for (const pair of pairs) {
-    const english = cleanText(pair.english);
+    const english = normalizeEnglishTerm(cleanText(pair.english));
     const chinese = cleanText(pair.chinese);
     if (!isEnglishPrompt(english) || !isChinesePrompt(chinese)) continue;
     const id = english.toLocaleLowerCase("en");

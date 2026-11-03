@@ -1,5 +1,6 @@
 import Dexie from "dexie";
 import { addDays, localDateKey } from "./utils/date";
+import { normalizeEnglishTerm } from "./utils/wordText";
 
 export const db = new Dexie("dailyEnglishPersonal");
 
@@ -100,7 +101,7 @@ export async function saveWordPairs(pairs, sourceName = "手动导入") {
   const pending = new Map();
 
   for (const pair of pairs) {
-    const english = pair.english?.trim().replace(/\s+/g, " ");
+    const english = normalizeEnglishTerm(pair.english);
     const chinese = pair.chinese?.trim().replace(/\s+/g, " ");
     if (!english || !chinese) continue;
     const id = makeWordId(english);
