@@ -15,6 +15,7 @@ import {
   getDueWords,
   getSetting,
   initializeSettings,
+  normalizeStoredWords,
   saveWordPairs
 } from "./db";
 import { localDateKey } from "./utils/date";
@@ -62,6 +63,7 @@ async function loadSnapshot() {
   const today = localDateKey();
   await initializeSettings();
   await seedFromAttachedWordFile();
+  await normalizeStoredWords();
   const assignment = await ensureTodayAssignment();
   const [
     words,

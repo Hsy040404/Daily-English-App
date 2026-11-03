@@ -135,6 +135,27 @@ async function readIndexedDb(page, storeName) {
   );
 }
 
+async function putIndexedDb(page, storeName, value) {
+  return page.evaluate(
+    ({ targetStore, record }) =>
+      new Promise((resolve, reject) => {
+        const request = indexedDB.open("dailyEnglishPersonal");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(targetStore, "readwrite");
+          const put = transaction.objectStore(targetStore).put(record);
+          put.onerror = () => reject(put.error);
+          put.onsuccess = () => {
+            database.close();
+            resolve(true);
+          };
+        };
+      }),
+    { targetStore: storeName, record: value }
+  );
+}
+
 async function writeWordFixture(fileName, rows) {
   const fixturePath = path.join(outputRoot, fileName);
   const fixture = new Document({
@@ -170,6 +191,40 @@ async function writeWordFixture(fileName, rows) {
 
 const tests = {
   n2: async ({ page }) => {
+    await putIndexedDb(page, "words", {
+      id: "100 light",
+      english: "100 light",
+      chinese: "光；轻的",
+      status: "known",
+      reviewStage: 2,
+      dueDate: "2026-12-01",
+      order: 300,
+      note: "旧版本导入记录",
+      lastStudiedDate: null,
+      createdAt: new Date().toISOString(),
+      sourceName: "旧词表.pdf"
+    });
+    await page.reload({ waitUntil: "networkidle" });
+
+    await navigate(page, "每日单词");
+    const focusWord = page.locator(".word-display h2");
+    assert(
+      (await focusWord.innerText()).trim() === "make",
+      "主学习卡片不应显示序号或数字"
+    );
+    assert(
+      (await page.locator(".word-display .word-order").count()) === 0,
+      "主学习卡片混入了列表序号"
+    );
+    assert(
+      (await page.locator(".mini-word-list .word-order").first().innerText()).trim() ===
+        "1",
+      "今日词单没有在单词前显示序号"
+    );
+    const focusFontFamily = await focusWord.evaluate(
+      (element) => getComputedStyle(element).fontFamily
+    );
+
     const fixturePath = path.join(outputRoot, "issue-n2-numbered.docx");
     const fixture = new Document({
       sections: [
@@ -203,7 +258,6 @@ const tests = {
     });
     await fs.writeFile(fixturePath, await Packer.toBuffer(fixture));
 
-    await navigate(page, "每日单词");
     await page.locator('input[type="file"]').first().setInputFiles(fixturePath);
     await page.getByRole("heading", { name: "识别到 2 组词对" }).waitFor();
     const preview = await page.locator(".preview-table").innerText();
@@ -211,6 +265,23 @@ const tests = {
     assert(!/\d/.test(preview), "导入预览中仍然包含数字");
     await page.getByRole("button", { name: /加入词库/ }).click();
     await page.getByRole("tab", { name: /全部词库/ }).click();
+    await page.getByLabel("搜索词库").fill("light");
+    const migratedRow = page.locator(".word-bank-row").first();
+    await migratedRow.waitFor();
+    assert(
+      (await migratedRow.locator("strong").innerText()).trim() === "light",
+      "已有词库中的旧编号没有迁移清除"
+    );
+    assert(
+      /^\d+$/.test(
+        (await migratedRow.locator(".word-bank-order").innerText()).trim()
+      ),
+      "完整词库没有在单词前显示独立的数字序号"
+    );
+    assert(
+      (await migratedRow.innerText()).includes("已经认识"),
+      "迁移后没有保留原有点击状态"
+    );
     await page.getByLabel("搜索词库").fill("alpha");
     const row = page.locator(".word-bank-row").first();
     await row.waitFor();
@@ -219,8 +290,9 @@ const tests = {
       .locator("strong")
       .evaluate((element) => getComputedStyle(element).fontFamily);
     assert(
-      fontFamily.includes("Times New Roman"),
-      "导入单词没有使用统一英文字体"
+      fontFamily.includes("Times New Roman") &&
+        focusFontFamily === fontFamily,
+      "词库与主学习卡片的英文字体不统一"
     );
     const words = await readIndexedDb(page, "words");
     assert(

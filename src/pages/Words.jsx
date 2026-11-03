@@ -466,6 +466,7 @@ export default function Words({ data, refresh, showToast }) {
                 key={word.id}
                 onClick={() => setBankSelectedWord(word)}
               >
+                <span className="word-bank-order">{word.order}</span>
                 <strong>{word.english}</strong>
                 <span className="word-bank-row__meaning">{word.chinese}</span>
                 <span className={`status-pill status-pill--${word.status}`}>
@@ -574,8 +575,11 @@ export default function Words({ data, refresh, showToast }) {
                     key={word.id}
                     onClick={() => selectWord(wordIndex)}
                   >
-                    <span>{word.english}</span>
-                    {studied ? <Check size={15} /> : <span>{wordIndex + 1}</span>}
+                    <span className="mini-word-main">
+                      <span className="word-order">{word.order}</span>
+                      <span className="mini-word-text">{word.english}</span>
+                    </span>
+                    {studied ? <Check size={15} /> : null}
                   </button>
                 );
               })}

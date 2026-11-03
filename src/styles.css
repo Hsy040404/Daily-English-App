@@ -1320,7 +1320,7 @@ input::placeholder {
 
 .word-bank-row {
   display: grid;
-  grid-template-columns: minmax(130px, 0.8fr) minmax(180px, 1.4fr) 88px minmax(120px, 0.8fr);
+  grid-template-columns: 38px minmax(130px, 0.8fr) minmax(180px, 1.4fr) 88px minmax(120px, 0.8fr);
   align-items: center;
   gap: 16px;
   min-height: 50px;
@@ -1332,6 +1332,13 @@ input::placeholder {
   background: transparent;
   text-align: left;
   cursor: pointer;
+}
+
+.word-bank-order {
+  color: #a2aaa5;
+  font-family: "Microsoft YaHei", sans-serif;
+  font-size: 8px;
+  font-variant-numeric: tabular-nums;
 }
 
 .word-bank-row:hover {
@@ -1688,12 +1695,32 @@ input::placeholder {
   font-family: var(--english-font);
   font-size: 13px;
   text-align: left;
+  letter-spacing: 0;
 }
 
-.mini-word-list button > span:last-child {
+.mini-word-main {
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.word-order {
+  flex: 0 0 25px;
   color: #aab1ad;
   font-family: "Microsoft YaHei", sans-serif;
   font-size: 8px;
+  font-variant-numeric: tabular-nums;
+}
+
+.mini-word-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mini-word-list button svg {
+  color: #aab1ad;
 }
 
 .mini-word-list button.is-active {
@@ -1702,7 +1729,7 @@ input::placeholder {
   color: var(--forest);
 }
 
-.mini-word-list button.is-studied > span:first-child {
+.mini-word-list button.is-studied .mini-word-text {
   color: #7b8b82;
   text-decoration: line-through;
 }

@@ -148,6 +148,129 @@ export async function saveWordPairs(pairs, sourceName = "手动导入") {
   return { added, updated, skipped };
 }
 
+export async function normalizeStoredWords() {
+  const words = await db.words.toArray();
+  if (!words.length) return { updated: 0, merged: 0 };
+
+  const groups = new Map();
+  let needsMigration = false;
+  for (const word of words) {
+    const english = normalizeEnglishTerm(word.english);
+    const id = makeWordId(english);
+    if (!english) {
+      needsMigration = true;
+      continue;
+    }
+    if (id !== word.id || english !== word.english) needsMigration = true;
+    if (!groups.has(id)) groups.set(id, []);
+    groups.get(id).push({ ...word, id, english });
+  }
+  if (!needsMigration) return { updated: 0, merged: 0 };
+
+  const rank = { new: 0, unfamiliar: 1, learning: 2, known: 3 };
+  const mergedWords = [];
+  const oldToNew = new Map();
+  const englishMap = new Map();
+
+  for (const [id, group] of groups.entries()) {
+    const sorted = [...group].sort(
+      (left, right) =>
+        (rank[right.status] || 0) - (rank[left.status] || 0) ||
+        String(right.updatedAt || "").localeCompare(String(left.updatedAt || ""))
+    );
+    const representative = sorted[0];
+    const latestNote =
+      sorted.find((word) => word.note?.trim())?.note || "";
+    const dueDate =
+      group
+        .map((word) => word.dueDate)
+        .filter(Boolean)
+        .sort()[0] || representative.dueDate;
+    const lastStudiedDate =
+      group
+        .map((word) => word.lastStudiedDate)
+        .filter(Boolean)
+        .sort()
+        .at(-1) || null;
+    const createdAt =
+      group
+        .map((word) => word.createdAt)
+        .filter(Boolean)
+        .sort()[0] || new Date().toISOString();
+    const order = Math.min(...group.map((word) => Number(word.order) || Infinity));
+    const merged = {
+      ...representative,
+      id,
+      english: representative.english,
+      chinese:
+        sorted.find((word) => word.chinese?.trim())?.chinese ||
+        representative.chinese,
+      status: representative.status || "new",
+      reviewStage: Math.max(...group.map((word) => Number(word.reviewStage) || 0)),
+      dueDate,
+      lastStudiedDate,
+      note: latestNote,
+      order: Number.isFinite(order) ? order : mergedWords.length + 1,
+      createdAt,
+      updatedAt: new Date().toISOString()
+    };
+    mergedWords.push(merged);
+    for (const word of group) {
+      oldToNew.set(word.id, id);
+      englishMap.set(word.english, merged.english);
+    }
+  }
+
+  mergedWords.sort((left, right) => left.order - right.order);
+  await db.transaction(
+    "rw",
+    [db.words, db.assignments, db.studyLogs, db.reviewLogs],
+    async () => {
+      await db.words.clear();
+      await db.words.bulkPut(mergedWords);
+
+      const assignments = await db.assignments.toArray();
+      await db.assignments.bulkPut(
+        assignments.map((assignment) => ({
+          ...assignment,
+          wordIds: [
+            ...new Set(
+              assignment.wordIds
+                .map((id) => oldToNew.get(id) || id)
+                .filter((id) => groups.has(id))
+            )
+          ]
+        }))
+      );
+
+      const studyLogs = await db.studyLogs.toArray();
+      const uniqueLogs = new Map();
+      for (const log of studyLogs) {
+        const wordId = oldToNew.get(log.wordId) || log.wordId;
+        if (!groups.has(wordId)) continue;
+        uniqueLogs.set(`${log.date}|${wordId}`, {
+          ...log,
+          wordId,
+          english: groups.get(wordId)?.[0]?.english || log.english
+        });
+      }
+      await db.studyLogs.clear();
+      if (uniqueLogs.size) await db.studyLogs.bulkPut([...uniqueLogs.values()]);
+
+      const reviewLogs = await db.reviewLogs.toArray();
+      await db.reviewLogs.bulkPut(
+        reviewLogs
+          .filter((log) => englishMap.has(log.english))
+          .map((log) => ({ ...log, english: englishMap.get(log.english) }))
+      );
+    }
+  );
+  return {
+    updated: mergedWords.length,
+    merged: words.length - mergedWords.length
+  };
+}
+
 export async function ensureTodayAssignment() {
   const date = localDateKey();
   const existing = await db.assignments.get(date);
