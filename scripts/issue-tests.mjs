@@ -104,6 +104,27 @@ async function navigate(page, label) {
   await page.waitForTimeout(250);
 }
 
+async function readIndexedDb(page, storeName) {
+  return page.evaluate(
+    (targetStore) =>
+      new Promise((resolve, reject) => {
+        const request = indexedDB.open("dailyEnglishPersonal");
+        request.onerror = () => reject(request.error);
+        request.onsuccess = () => {
+          const database = request.result;
+          const transaction = database.transaction(targetStore, "readonly");
+          const getAll = transaction.objectStore(targetStore).getAll();
+          getAll.onerror = () => reject(getAll.error);
+          getAll.onsuccess = () => {
+            database.close();
+            resolve(getAll.result);
+          };
+        };
+      }),
+    storeName
+  );
+}
+
 const tests = {
   2: async ({ page }) => {
     await navigate(page, "每日单词");
@@ -124,6 +145,37 @@ const tests = {
     );
     await page.screenshot({
       path: path.join(outputRoot, "issue-2.png"),
+      fullPage: true
+    });
+  },
+  3: async ({ page }) => {
+    await navigate(page, "每日单词");
+    await page.getByRole("tab", { name: /全部词库/ }).click();
+    const yesterday = await page.evaluate(() => {
+      const date = new Date();
+      date.setDate(date.getDate() - 1);
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    });
+    await page.getByLabel("补记学习日期").fill(yesterday);
+    await page.getByLabel("搜索词库").fill("because");
+    await page.locator(".word-bank-row").click();
+    await page.getByRole("button", { name: /还不熟/ }).click();
+    await page.waitForTimeout(300);
+    const studyLogs = await readIndexedDb(page, "studyLogs");
+    assert(
+      studyLogs.some(
+        (log) => log.english === "because" && log.date === yesterday
+      ),
+      "没有写入昨天对应单词的学习历史"
+    );
+    await navigate(page, "间隔复习");
+    assert(
+      (await page.locator("body").innerText()).includes("今天的记忆在等你"),
+      "昨天标记为不熟的单词没有进入今日复习队列"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-3.png"),
       fullPage: true
     });
   }

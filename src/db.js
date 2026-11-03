@@ -13,6 +13,17 @@ db.version(1).stores({
   reviewLogs: "++id, date, english"
 });
 
+db.version(2).stores({
+  words: "&id, &english, status, dueDate, order, createdAt",
+  settings: "&key",
+  assignments: "&date",
+  speaking: "&date",
+  readings: "&id",
+  memos: "&date",
+  reviewLogs: "++id, date, english",
+  studyLogs: "++id, &[date+wordId], date, wordId, rating"
+});
+
 export const defaults = {
   wordTarget: 10,
   reviewTarget: 20,
@@ -129,8 +140,16 @@ export async function getDueWords(date = localDateKey()) {
     .toArray();
 }
 
-export async function markWordStudy(word, rating, note) {
+export async function markWordStudy(
+  word,
+  rating,
+  note,
+  studyDate = localDateKey()
+) {
   const today = localDateKey();
+  const selectedDate = /^\d{4}-\d{2}-\d{2}$/.test(studyDate)
+    ? studyDate
+    : today;
   const statusByRating = {
     again: "unfamiliar",
     hard: "learning",
@@ -141,12 +160,37 @@ export async function markWordStudy(word, rating, note) {
     hard: 2,
     good: 3
   };
-  await db.words.update(word.id, {
-    status: statusByRating[rating] || "learning",
-    dueDate: addDays(today, dueByRating[rating] || 2),
-    lastStudiedDate: today,
-    note: typeof note === "string" ? note : word.note || "",
-    updatedAt: new Date().toISOString()
+  const existing = await db.words.get(word.id);
+  const latestStudyDate =
+    existing?.lastStudiedDate && existing.lastStudiedDate > selectedDate
+      ? existing.lastStudiedDate
+      : selectedDate;
+
+  await db.transaction("rw", db.words, db.studyLogs, async () => {
+    await db.words.update(word.id, {
+      status: statusByRating[rating] || "learning",
+      dueDate: addDays(selectedDate, dueByRating[rating] || 2),
+      lastStudiedDate: latestStudyDate,
+      note: typeof note === "string" ? note : word.note || "",
+      updatedAt: new Date().toISOString()
+    });
+    const existingLog = await db.studyLogs
+      .where("[date+wordId]")
+      .equals([selectedDate, word.id])
+      .first();
+    const log = {
+      date: selectedDate,
+      wordId: word.id,
+      english: word.english,
+      chinese: word.chinese,
+      rating,
+      createdAt: new Date().toISOString()
+    };
+    if (existingLog) {
+      await db.studyLogs.update(existingLog.id, log);
+    } else {
+      await db.studyLogs.add(log);
+    }
   });
 }
 

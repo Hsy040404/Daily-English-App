@@ -37,6 +37,8 @@ export default function Words({ data, refresh, showToast }) {
   const [index, setIndex] = useState(0);
   const [activeView, setActiveView] = useState("today");
   const [bankQuery, setBankQuery] = useState("");
+  const [bankStudyDate, setBankStudyDate] = useState(data.today);
+  const [bankSelectedWord, setBankSelectedWord] = useState(null);
   const [revealed, setRevealed] = useState(false);
   const [note, setNote] = useState("");
   const [busyImport, setBusyImport] = useState(false);
@@ -123,6 +125,28 @@ export default function Words({ data, refresh, showToast }) {
     });
     showToast("词语笔记已保存");
     refresh();
+  }
+
+  async function markFromBank(rating) {
+    if (!bankSelectedWord) return;
+    const selected = bankSelectedWord;
+    await markWordStudy(
+      selected,
+      rating,
+      selected.note,
+      bankStudyDate
+    );
+    await refresh();
+    setBankSelectedWord(null);
+    showToast(
+      `${selected.english} 已记录为 ${
+        rating === "again"
+          ? "还不熟"
+          : rating === "hard"
+            ? "有印象"
+            : "已经认识"
+      }（${bankStudyDate}）`
+    );
   }
 
   async function handleFile(event) {
@@ -302,15 +326,27 @@ export default function Words({ data, refresh, showToast }) {
               <h2>全部词库</h2>
               <p>查看已经导入的单词、释义、学习状态和来源。</p>
             </div>
-            <label className="word-search">
-              <Search size={16} />
-              <input
-                value={bankQuery}
-                onChange={(event) => setBankQuery(event.target.value)}
-                placeholder="搜索英文或中文"
-                aria-label="搜索词库"
-              />
-            </label>
+            <div className="word-bank__tools">
+              <label className="bank-date">
+                <span>补记学习日期</span>
+                <input
+                  type="date"
+                  value={bankStudyDate}
+                  max={data.today}
+                  onChange={(event) => setBankStudyDate(event.target.value)}
+                  aria-label="补记学习日期"
+                />
+              </label>
+              <label className="word-search">
+                <Search size={16} />
+                <input
+                  value={bankQuery}
+                  onChange={(event) => setBankQuery(event.target.value)}
+                  placeholder="搜索英文或中文"
+                  aria-label="搜索词库"
+                />
+              </label>
+            </div>
           </div>
           <div className="word-bank__meta">
             <span>显示 {filteredBankWords.length} / {data.words.length} 个词</span>
@@ -318,7 +354,11 @@ export default function Words({ data, refresh, showToast }) {
           </div>
           <div className="word-bank-list">
             {filteredBankWords.map((word) => (
-              <div className="word-bank-row" key={word.id}>
+              <button
+                className="word-bank-row"
+                key={word.id}
+                onClick={() => setBankSelectedWord(word)}
+              >
                 <strong>{word.english}</strong>
                 <span className="word-bank-row__meaning">{word.chinese}</span>
                 <span className={`status-pill status-pill--${word.status}`}>
@@ -331,7 +371,7 @@ export default function Words({ data, refresh, showToast }) {
                         : "未学习"}
                 </span>
                 <small>{word.sourceName || "个人词库"}</small>
-              </div>
+              </button>
             ))}
           </div>
           {!filteredBankWords.length ? (
@@ -453,6 +493,31 @@ export default function Words({ data, refresh, showToast }) {
           />
         </section>
       )}
+
+      {bankSelectedWord ? (
+        <Modal
+          title={bankSelectedWord.english}
+          eyebrow={`学习日期 · ${bankStudyDate}`}
+          onClose={() => setBankSelectedWord(null)}
+        >
+          <div className="bank-word-dialog">
+            <strong>{bankSelectedWord.chinese}</strong>
+            <p>来源：{bankSelectedWord.sourceName || "个人词库"}</p>
+            <div className="study-actions">
+              {studyChoices.map((choice) => (
+                <button
+                  className={`study-choice study-choice--${choice.id}`}
+                  key={choice.id}
+                  onClick={() => markFromBank(choice.id)}
+                >
+                  <strong>{choice.label}</strong>
+                  <span>{choice.hint}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </Modal>
+      ) : null}
 
       {importPreview ? (
         <Modal
