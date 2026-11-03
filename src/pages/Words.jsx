@@ -8,8 +8,10 @@ import {
   Download,
   FileUp,
   Headphones,
+  Library,
   LoaderCircle,
   Plus,
+  Search,
   Sparkles,
   Volume2
 } from "lucide-react";
@@ -33,6 +35,8 @@ const studyChoices = [
 
 export default function Words({ data, refresh, showToast }) {
   const [index, setIndex] = useState(0);
+  const [activeView, setActiveView] = useState("today");
+  const [bankQuery, setBankQuery] = useState("");
   const [revealed, setRevealed] = useState(false);
   const [note, setNote] = useState("");
   const [busyImport, setBusyImport] = useState(false);
@@ -72,6 +76,15 @@ export default function Words({ data, refresh, showToast }) {
     }
     return [...names.entries()].slice(0, 3);
   }, [data.words]);
+  const filteredBankWords = useMemo(() => {
+    const query = bankQuery.trim().toLocaleLowerCase("en");
+    if (!query) return data.words;
+    return data.words.filter(
+      (word) =>
+        word.english.toLocaleLowerCase("en").includes(query) ||
+        word.chinese.includes(bankQuery.trim())
+    );
+  }, [bankQuery, data.words]);
 
   function selectWord(nextIndex) {
     if (!todayWords.length) return;
@@ -219,6 +232,26 @@ export default function Words({ data, refresh, showToast }) {
         </div>
       ) : null}
 
+      <div className="word-view-tabs" role="tablist" aria-label="单词视图">
+        <button
+          className={activeView === "today" ? "is-active" : ""}
+          onClick={() => setActiveView("today")}
+          role="tab"
+          aria-selected={activeView === "today"}
+        >
+          <BookOpen size={16} /> 今日学习
+        </button>
+        <button
+          className={activeView === "bank" ? "is-active" : ""}
+          onClick={() => setActiveView("bank")}
+          role="tab"
+          aria-selected={activeView === "bank"}
+        >
+          <Library size={16} /> 全部词库
+          <span>{data.wordCount}</span>
+        </button>
+      </div>
+
       <section className="word-stats">
         <div className="word-stat">
           <BookOpen size={18} />
@@ -261,7 +294,51 @@ export default function Words({ data, refresh, showToast }) {
         </div>
       </section>
 
-      {todayWords.length ? (
+      {activeView === "bank" ? (
+        <section className="word-bank panel">
+          <div className="word-bank__header">
+            <div>
+              <span className="eyebrow">WORD LIBRARY</span>
+              <h2>全部词库</h2>
+              <p>查看已经导入的单词、释义、学习状态和来源。</p>
+            </div>
+            <label className="word-search">
+              <Search size={16} />
+              <input
+                value={bankQuery}
+                onChange={(event) => setBankQuery(event.target.value)}
+                placeholder="搜索英文或中文"
+                aria-label="搜索词库"
+              />
+            </label>
+          </div>
+          <div className="word-bank__meta">
+            <span>显示 {filteredBankWords.length} / {data.words.length} 个词</span>
+            <span>英文 · 中文释义 · 状态 · 来源</span>
+          </div>
+          <div className="word-bank-list">
+            {filteredBankWords.map((word) => (
+              <div className="word-bank-row" key={word.id}>
+                <strong>{word.english}</strong>
+                <span className="word-bank-row__meaning">{word.chinese}</span>
+                <span className={`status-pill status-pill--${word.status}`}>
+                  {word.status === "unfamiliar"
+                    ? "还不熟"
+                    : word.status === "learning"
+                      ? "有印象"
+                      : word.status === "known"
+                        ? "已经认识"
+                        : "未学习"}
+                </span>
+                <small>{word.sourceName || "个人词库"}</small>
+              </div>
+            ))}
+          </div>
+          {!filteredBankWords.length ? (
+            <div className="word-bank-empty">没有找到匹配的单词。</div>
+          ) : null}
+        </section>
+      ) : todayWords.length ? (
         <div className="word-workspace">
           <section className="word-focus panel">
             <div className="word-focus__top">
