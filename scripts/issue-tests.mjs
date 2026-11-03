@@ -356,6 +356,40 @@ const tests = {
       fullPage: true
     });
   },
+  n7: async ({ page }) => {
+    assert(
+      (await page.getByRole("heading", { name: "今日三项" }).count()) === 1,
+      "首页没有呈现调整后的今日三项结构"
+    );
+    assert(
+      (await page.locator(".main-nav button").count()) === 4,
+      "删除阅读后导航数量不正确"
+    );
+    assert(
+      (await page.locator(".summary-card").count()) === 3,
+      "首页摘要卡片数量不正确"
+    );
+    const columns = await page
+      .locator(".summary-grid")
+      .evaluate((element) => getComputedStyle(element).gridTemplateColumns);
+    assert(columns.split(" ").length === 3, "三张摘要卡没有排成同一行");
+    const overflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth
+    );
+    assert(!overflow, "调整后的首页出现横向溢出");
+    await page.setViewportSize({ width: 1100, height: 900 });
+    await page.waitForTimeout(250);
+    const compactOverflow = await page.evaluate(
+      () => document.documentElement.scrollWidth > window.innerWidth
+    );
+    assert(!compactOverflow, "较窄桌面宽度下首页出现横向溢出");
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await page.waitForTimeout(200);
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-n7.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();

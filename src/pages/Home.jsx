@@ -129,6 +129,13 @@ export default function Home({ data, navigate, refresh, showToast }) {
         </div>
       </section>
 
+      <div className="home-section-title">
+        <div>
+          <span className="eyebrow">DAILY RHYTHM</span>
+          <h2>今日三项</h2>
+        </div>
+        <p>单词打底，口语输出，再用复习把记忆留下来。</p>
+      </div>
       <section className="summary-grid">
         {summaries.map((item) => {
           const Icon = item.icon;
