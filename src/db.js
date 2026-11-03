@@ -36,6 +36,19 @@ db.version(3).stores({
   materials: "++id, &[module+fileName], module, importedAt"
 });
 
+db.version(4).stores({
+  words: "&id, &english, status, dueDate, order, createdAt",
+  settings: "&key",
+  assignments: "&date",
+  speaking: "&date",
+  readings: "&id",
+  memos: "&date",
+  reviewLogs: "++id, date, english",
+  studyLogs: "++id, &[date+wordId], date, wordId, rating",
+  materials: "++id, &[module+fileName], module, importedAt",
+  readingCompletions: "++id, &[date+articleId], date, articleId"
+});
+
 export const defaults = {
   wordTarget: 10,
   reviewTarget: 20,

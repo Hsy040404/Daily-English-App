@@ -12,6 +12,7 @@ import {
 import { db } from "../db";
 import { formatChineseDate, greeting, localDateKey } from "../utils/date";
 import { ProgressRing } from "../components/ui";
+import ActivityCalendar from "../components/ActivityCalendar";
 
 export default function Home({ data, navigate, refresh }) {
   const [memo, setMemo] = useState(data.memo?.text || "");
@@ -226,6 +227,11 @@ export default function Home({ data, navigate, refresh }) {
           </div>
         </section>
       </div>
+
+      <ActivityCalendar
+        activityByDate={data.activityByDate}
+        today={data.today}
+      />
     </div>
   );
 }

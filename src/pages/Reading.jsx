@@ -140,10 +140,24 @@ export default function Reading({ data, refresh, showToast }) {
   }
 
   async function markComplete() {
+    const today = localDateKey();
+    const existingCompletion = await db.readingCompletions
+      .where("[date+articleId]")
+      .equals([today, article.id])
+      .first();
+    if (!existingCompletion) {
+      await db.readingCompletions.add({
+        date: today,
+        articleId: article.id,
+        title: article.title,
+        completedAt: new Date().toISOString()
+      });
+    }
     await persist(
       {
-        completedDate: localDateKey(),
-        completedCount: (record?.completedCount || 0) + 1
+        completedDate: today,
+        completedCount:
+          (record?.completedCount || 0) + (existingCompletion ? 0 : 1)
       },
       "今天的阅读已完成"
     );

@@ -79,7 +79,11 @@ async function loadSnapshot() {
     memo,
     todayReviewCount,
     knownCount,
-    materials
+    materials,
+    studyLogs,
+    reviewLogs,
+    speakingLogs,
+    readingCompletions
   ] = await Promise.all([
     db.words.orderBy("order").toArray(),
     getDueWords(today),
@@ -91,7 +95,11 @@ async function loadSnapshot() {
     db.memos.get(today),
     db.reviewLogs.where("date").equals(today).count(),
     db.words.where("status").equals("known").count(),
-    db.materials.toArray()
+    db.materials.toArray(),
+    db.studyLogs.toArray(),
+    db.reviewLogs.toArray(),
+    db.speaking.toArray(),
+    db.readingCompletions.toArray()
   ]);
   const wordMap = new Map(words.map((word) => [word.id, word]));
   const todayWords = assignment.wordIds
@@ -110,6 +118,33 @@ async function loadSnapshot() {
     known: words.filter((word) => word.status === "known").length,
     new: words.filter((word) => word.status === "new").length
   };
+  const activityByDate = {};
+  const getActivity = (date) => {
+    if (!activityByDate[date]) {
+      activityByDate[date] = {
+        date,
+        words: 0,
+        reviews: 0,
+        speaking: 0,
+        reading: 0
+      };
+    }
+    return activityByDate[date];
+  };
+  studyLogs.forEach((log) => {
+    getActivity(log.date).words += 1;
+  });
+  reviewLogs.forEach((log) => {
+    getActivity(log.date).reviews += 1;
+  });
+  speakingLogs.forEach((record) => {
+    if (record.duration > 0 || record.blob) {
+      getActivity(record.date).speaking += 1;
+    }
+  });
+  readingCompletions.forEach((record) => {
+    getActivity(record.date).reading += 1;
+  });
 
   return {
     today,
@@ -126,6 +161,7 @@ async function loadSnapshot() {
     todayReviewCount,
     knownCount,
     statusCounts,
+    activityByDate,
     todaySpeaking: todaySpeaking || null,
     readingRecords,
     materials,

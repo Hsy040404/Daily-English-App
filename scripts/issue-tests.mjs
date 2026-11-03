@@ -164,7 +164,7 @@ const tests = {
     await page.getByLabel("补记学习日期").fill(yesterday);
     await page.getByLabel("搜索词库").fill("because");
     await page.locator(".word-bank-row").click();
-    await page.getByRole("button", { name: /还不熟/ }).click();
+    await page.locator(".modal .study-choice--again").click();
     await page.waitForTimeout(300);
     const studyLogs = await readIndexedDb(page, "studyLogs");
     assert(
@@ -208,7 +208,7 @@ const tests = {
   },
   5: async ({ page }) => {
     await navigate(page, "每日单词");
-    await page.getByRole("button", { name: /还不熟/ }).click();
+    await page.locator(".word-navigation .study-choice--again").click();
     await page.waitForTimeout(250);
     await page.getByRole("button", { name: /有印象/ }).click();
     await page.waitForTimeout(250);
@@ -323,6 +323,48 @@ const tests = {
     );
     await page.screenshot({
       path: path.join(outputRoot, "issue-7.png"),
+      fullPage: true
+    });
+  },
+  8: async ({ page }) => {
+    await navigate(page, "每日单词");
+    await page.getByRole("tab", { name: /全部词库/ }).click();
+    const yesterday = await page.evaluate(() => {
+      const date = new Date();
+      date.setDate(date.getDate() - 1);
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    });
+    const today = await page.evaluate(() => {
+      const date = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    });
+    await page.getByLabel("补记学习日期").fill(yesterday);
+    await page.getByLabel("搜索词库").fill("because");
+    await page.locator(".word-bank-row").click();
+    await page.locator(".modal .study-choice--again").click();
+
+    await navigate(page, "英语阅读");
+    await page.getByRole("button", { name: /标记今天已读完/ }).click();
+    await page.waitForTimeout(300);
+
+    await navigate(page, "今日总览");
+    const yesterdayCell = page.locator(`[data-date="${yesterday}"]`);
+    await yesterdayCell.click();
+    const detail = page.locator(".calendar-detail");
+    assert(
+      (await detail.innerText()).includes("单词") &&
+        (await detail.innerText()).includes("1"),
+      "日历没有显示昨天完成的单词学习"
+    );
+    await page.locator(`[data-date="${today}"]`).click();
+    assert(
+      (await detail.innerText()).includes("阅读"),
+      "日历没有显示今天的阅读完成记录"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-8.png"),
       fullPage: true
     });
   }
