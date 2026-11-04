@@ -123,6 +123,13 @@ export default function Words({ data, refresh, showToast }) {
     (word) => word.lastStudiedDate === data.today
   ).length;
   const progress = todayWords.length ? (done / todayWords.length) * 100 : 0;
+  const unlearnedQuizWords = todayWords.filter(
+    (word) =>
+      word.dailyQuizPassedDate !== data.today &&
+      word.lastStudiedDate !== data.today
+  );
+  const hasQuizProgress =
+    data.todayQuizPassedCount > 0 || data.todayTestStarted;
   const studySignature = todayWords
     .map((word) => `${word.id}:${word.lastStudiedDate || ""}`)
     .join("|");
@@ -407,6 +414,17 @@ export default function Words({ data, refresh, showToast }) {
     setQuizSelected("");
   }
 
+  function focusUnfinishedQuizWord() {
+    const target = unlearnedQuizWords[0];
+    if (!target) return;
+    const targetIndex = todayWords.findIndex((word) => word.id === target.id);
+    if (targetIndex >= 0) {
+      setIndex(targetIndex);
+      setRevealed(false);
+      showToast(`请先补学 ${target.english}，然后继续单词测试`);
+    }
+  }
+
   return (
     <div className="page">
       <PageHeading
@@ -542,15 +560,19 @@ export default function Words({ data, refresh, showToast }) {
             <h3>
               {data.todayTestPassed
                 ? "今日单词测试已通过"
+                : data.todayTestStarted && unlearnedQuizWords.length
+                  ? `还有 ${unlearnedQuizWords.length} 个单词需要补学`
                 : data.todayTestUnlocked
-                  ? "今日目标完成，单词测试已解锁"
-                  : data.todayTestStarted
-                    ? "继续完成未通过测试的单词"
+                  ? hasQuizProgress
+                    ? "继续完成今日单词测试"
+                    : "今日目标完成，单词测试已解锁"
                     : "完成今日目标后解锁单词测试"}
             </h3>
             <p>
               {data.todayTestPassed
                 ? "现在可以增加今日单词；新增单词完成学习后需要再次测试。"
+                : data.todayTestStarted && unlearnedQuizWords.length
+                  ? "补学这些单词后，测试入口会恢复，已答对的词不会重复。"
                 : data.todayTestUnlocked
                   ? "每个单词选择正确的中文意思，答错会重新进入学习。"
                   : "完成当前词单后才能检查今天的掌握情况。"}
@@ -559,14 +581,23 @@ export default function Words({ data, refresh, showToast }) {
           <div className="daily-test-unlock__progress">
             <span>{data.todayQuizPassedCount}/{todayWords.length} 已通过</span>
             {!data.todayTestPassed ? (
-              <button
-                className="primary-button"
-                onClick={startQuiz}
-                disabled={!data.todayTestUnlocked}
-              >
-                <Play size={16} />
-                {data.todayTestStarted ? "继续测试" : "开始单词测试"}
-              </button>
+              data.todayTestStarted && unlearnedQuizWords.length ? (
+                <button
+                  className="primary-button"
+                  onClick={focusUnfinishedQuizWord}
+                >
+                  <BookOpen size={16} /> 补学未通过单词
+                </button>
+              ) : (
+                <button
+                  className="primary-button"
+                  onClick={startQuiz}
+                  disabled={!data.todayTestUnlocked}
+                >
+                  <Play size={16} />
+                  {hasQuizProgress ? "继续测试" : "开始单词测试"}
+                </button>
+              )
             ) : null}
           </div>
         </section>
@@ -889,15 +920,24 @@ export default function Words({ data, refresh, showToast }) {
                 完成
               </button>
             ) : quizSelected ? (
-              <button
-                className="primary-button"
-                onClick={nextQuizQuestion}
-                disabled={quizSaving}
-              >
-                {quizIndex === quizQuestions.length - 1 ? "查看结果" : "下一题"}
-                <ArrowRight size={16} />
+              <>
+                <button className="secondary-button" onClick={closeQuiz}>
+                  退出并保留进度
+                </button>
+                <button
+                  className="primary-button"
+                  onClick={nextQuizQuestion}
+                  disabled={quizSaving}
+                >
+                  {quizIndex === quizQuestions.length - 1 ? "查看结果" : "下一题"}
+                  <ArrowRight size={16} />
+                </button>
+              </>
+            ) : (
+              <button className="secondary-button" onClick={closeQuiz}>
+                退出并保留进度
               </button>
-            ) : null
+            )
           }
         >
           {quizFinished === "passed" ? (

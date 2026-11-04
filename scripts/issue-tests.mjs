@@ -778,6 +778,91 @@ const tests = {
       fullPage: true
     });
   },
+  q2: async ({ page }) => {
+    await navigate(page, "每日单词");
+    const wordBank = await readIndexedDb(page, "words");
+    for (let index = 0; index < 10; index += 1) {
+      await page.locator(".word-navigation .study-choice--good").click();
+      if (index < 9) {
+        await page
+          .locator(".word-focus__top .quiet-label")
+          .filter({ hasText: `${index + 2} / 10` })
+          .waitFor();
+      }
+    }
+    await page.getByRole("button", { name: /开始单词测试/ }).click();
+    await page.locator(".quiz-word").waitFor();
+    await page.getByRole("button", { name: /退出并保留进度/ }).click();
+    const continueButton = page.getByRole("button", { name: /继续测试/ });
+    await continueButton.waitFor();
+    assert(await continueButton.isEnabled(), "关闭测试后“继续测试”按钮不可用");
+    await continueButton.click();
+    await page.locator(".quiz-word").waitFor();
+
+    const english = (await page.locator(".quiz-word").innerText()).trim();
+    const word = wordBank.find((item) => item.english === english);
+    const options = page.locator(".daily-test-option");
+    const optionTexts = await options.allTextContents();
+    const correctIndex = optionTexts.findIndex((text) =>
+      text.includes(word.chinese)
+    );
+    await options.nth(correctIndex).click();
+    await page.locator(".quiz-feedback").waitFor();
+    await page.locator('.modal button[aria-label="关闭"]').click();
+    await page.reload({ waitUntil: "networkidle" });
+    await navigate(page, "每日单词");
+    const resumedButton = page.getByRole("button", { name: /继续测试/ });
+    await resumedButton.waitFor();
+    await resumedButton.click();
+    await page.locator(".quiz-word").waitFor();
+    assert(
+      (await page.locator(".modal__header .eyebrow").innerText()).trim().endsWith("/9"),
+      "刷新后继续测试没有跳过已经答对的单词"
+    );
+    const remainingEnglish = (
+      await page.locator(".quiz-word").innerText()
+    ).trim();
+    const remainingWord = wordBank.find(
+      (item) => item.english === remainingEnglish
+    );
+    const remainingOptions = page.locator(".daily-test-option");
+    const remainingTexts = await remainingOptions.allTextContents();
+    const wrongIndex = remainingTexts.findIndex(
+      (text) => !text.includes(remainingWord.chinese)
+    );
+    await remainingOptions.nth(wrongIndex).click();
+    await page.locator(".quiz-feedback").waitFor();
+    await page.getByRole("button", { name: /退出并保留进度/ }).click();
+    await page
+      .getByRole("heading", { name: /还有 1 个单词需要补学/ })
+      .waitFor();
+    const recoverButton = page.getByRole("button", {
+      name: /补学未通过单词/
+    });
+    assert(await recoverButton.isEnabled(), "没有提供补学未通过单词的入口");
+    await recoverButton.click();
+    assert(
+      (await page.locator(".word-display h2").innerText()).trim() ===
+        remainingEnglish,
+      "补学入口没有定位到答错的单词"
+    );
+    await page.locator(".word-navigation .study-choice--good").click();
+    await page.waitForTimeout(350);
+    const canContinue = page.getByRole("button", { name: /继续测试/ });
+    await canContinue.waitFor();
+    assert(await canContinue.isEnabled(), "补学后测试入口仍然不可用");
+    await canContinue.click();
+    await page.locator(".daily-test-option").first().waitFor();
+    assert(
+      (await page.locator(".daily-test-option").count()) === 4,
+      "重新进入测试后没有生成题目"
+    );
+    await page.getByRole("button", { name: /退出并保留进度/ }).click();
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-q2.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();
