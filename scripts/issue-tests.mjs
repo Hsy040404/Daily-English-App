@@ -580,6 +580,165 @@ const tests = {
       fullPage: true
     });
   },
+  q1: async ({ page }) => {
+    await navigate(page, "每日单词");
+    const wordBank = await readIndexedDb(page, "words");
+
+    for (let index = 0; index < 10; index += 1) {
+      await page.locator(".word-navigation .study-choice--good").click();
+      if (index < 9) {
+        await page
+          .locator(".word-focus__top .quiet-label")
+          .filter({ hasText: `${index + 2} / 10` })
+          .waitFor();
+      }
+    }
+    await page
+      .getByRole("heading", { name: /单词测试已解锁/ })
+      .waitFor();
+
+    const targetInput = page.locator(".target-control input");
+    await targetInput.fill("15");
+    await page.locator(".target-control button").click();
+    await page
+      .getByText("请先完成当前单词测试，再增加今日单词")
+      .waitFor();
+    assert(
+      (await page.locator(".mini-word-list button").count()) === 10,
+      "测试未完成时错误地增加了今日单词"
+    );
+
+    async function answerOne({ wrong = false } = {}) {
+      const english = (await page.locator(".quiz-word").innerText()).trim();
+      const word = wordBank.find((item) => item.english === english);
+      assert(word, `测试中出现了未知单词 ${english}`);
+      const options = page.locator(".daily-test-option");
+      assert((await options.count()) === 4, "每题必须显示 4 个中文选项");
+      const texts = await options.allTextContents();
+      assert(
+        new Set(texts.map((text) => text.trim())).size === 4,
+        "测试选项存在重复"
+      );
+      const correctIndex = texts.findIndex((text) => text.includes(word.chinese));
+      const answerIndex = wrong
+        ? texts.findIndex((text) => !text.includes(word.chinese))
+        : correctIndex;
+      assert(correctIndex >= 0 && answerIndex >= 0, "没有找到测试答案");
+      await options.nth(answerIndex).click();
+      await page.locator(".quiz-feedback").waitFor();
+      return { english, correct: word.chinese };
+    }
+
+    await page.getByRole("button", { name: /开始单词测试/ }).click();
+    for (let index = 0; index < 10; index += 1) {
+      await answerOne();
+      await page
+        .getByRole("button", {
+          name: index === 9 ? /查看结果/ : /下一题/
+        })
+        .click();
+    }
+    await page.getByText("今天全部答对").waitFor();
+    await page.getByRole("button", { name: "完成" }).click();
+    await page.getByText("今日单词测试已通过").waitFor();
+
+    await targetInput.fill("15");
+    await page.locator(".target-control button").click();
+    await page.waitForTimeout(500);
+    assert(
+      (await page.locator(".mini-word-list button").count()) === 15,
+      "测试通过后没有成功增加今日单词"
+    );
+
+    const today = await page.evaluate(() => {
+      const date = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    });
+    const refreshedWords = await readIndexedDb(page, "words");
+    const assignments = await readIndexedDb(page, "assignments");
+    const todayAssignment = assignments.find((item) => item.date === today);
+    const wordMap = new Map(refreshedWords.map((word) => [word.id, word]));
+    const newWords = todayAssignment.wordIds
+      .map((id) => wordMap.get(id))
+      .filter((word) => word && word.lastStudiedDate !== today);
+    assert(newWords.length === 5, "新增的五个今日单词状态不正确");
+    for (const word of newWords) {
+      await page
+        .locator(".mini-word-list button")
+        .filter({ hasText: word.english })
+        .click();
+      await page.locator(".word-navigation .study-choice--good").click();
+      await page.waitForTimeout(220);
+    }
+    await page
+      .getByRole("button", { name: /开始单词测试|继续测试/ })
+      .click();
+
+    const wrongAnswer = await answerOne({ wrong: true });
+    await page.getByRole("button", { name: /下一题/ }).click();
+    for (let index = 1; index < 5; index += 1) {
+      await answerOne();
+      await page
+        .getByRole("button", {
+          name: index === 4 ? /查看结果/ : /下一题/
+        })
+        .click();
+    }
+    await page.getByText("有单词还需要继续学习").waitFor();
+    assert(
+      (await page.locator(".quiz-result--failed").innerText()).includes(
+        wrongAnswer.english
+      ),
+      "答错的单词没有出现在未通过结果中"
+    );
+    await page.getByRole("button", { name: "完成" }).click();
+    const failedWord = (
+      await readIndexedDb(page, "words")
+    ).find((word) => word.english === wrongAnswer.english);
+    assert(
+      failedWord.status === "unfamiliar" &&
+        failedWord.lastStudiedDate !== today,
+      "答错后单词仍然被错误标记为完成"
+    );
+
+    await targetInput.fill("20");
+    await page.locator(".target-control button").click();
+    await page
+      .getByText("请先完成当前单词测试，再增加今日单词")
+      .waitFor();
+
+    await page
+      .locator(".mini-word-list button")
+      .filter({ hasText: wrongAnswer.english })
+      .click();
+    await page.locator(".word-navigation .study-choice--good").click();
+    await page.waitForTimeout(300);
+    await page
+      .getByRole("button", { name: /开始单词测试|继续测试/ })
+      .click();
+    await page.locator(".daily-test-option").first().waitFor();
+    assert(
+      (await page.locator(".daily-test-option").count()) === 4,
+      "补学后重测没有生成四个选项"
+    );
+    await answerOne();
+    await page.getByRole("button", { name: /查看结果/ }).click();
+    await page.getByText("今天全部答对").waitFor();
+    await page.getByRole("button", { name: "完成" }).click();
+
+    await targetInput.fill("20");
+    await page.locator(".target-control button").click();
+    await page.waitForTimeout(500);
+    assert(
+      (await page.locator(".mini-word-list button").count()) === 20,
+      "最终通过测试后仍不能增加今日单词"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-q1.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();

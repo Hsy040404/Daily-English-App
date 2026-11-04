@@ -298,22 +298,17 @@ export async function ensureTodayAssignment() {
 
   if (existing) {
     const validIds = existing.wordIds.filter((id) => wordMap.has(id));
-    const existingIds = new Set(validIds);
-    const availableIds = candidates
-      .filter((word) => !existingIds.has(word.id))
-      .map((word) => word.id);
-    const needed = Math.max(0, Math.min(target, candidates.length) - validIds.length);
-    if (needed > 0 || validIds.length !== existing.wordIds.length) {
+    if (existing.wordIds.length === 0) {
       const repaired = {
         ...existing,
-        wordIds: [...validIds, ...availableIds.slice(0, needed)],
+        wordIds: candidates.slice(0, target).map((word) => word.id),
         target,
         repairedAt: new Date().toISOString()
       };
       await db.assignments.put(repaired);
       return repaired;
     }
-    return existing;
+    return { ...existing, wordIds: validIds };
   }
 
   const wordIds = candidates.slice(0, target).map((word) => word.id);
@@ -361,12 +356,16 @@ export async function markWordStudy(
       ? existing.lastStudiedDate
       : selectedDate;
 
-  await db.transaction("rw", db.words, db.studyLogs, async () => {
+  await db.transaction("rw", db.words, db.studyLogs, db.assignments, async () => {
     await db.words.update(word.id, {
       status: statusByRating[rating] || "learning",
       dueDate: addDays(selectedDate, dueByRating[rating] || 2),
       lastStudiedDate: latestStudyDate,
       note: typeof note === "string" ? note : word.note || "",
+      dailyQuizPassedDate:
+        selectedDate === today
+          ? null
+          : existing?.dailyQuizPassedDate || null,
       updatedAt: new Date().toISOString()
     });
     const existingLog = await db.studyLogs
@@ -386,6 +385,12 @@ export async function markWordStudy(
     } else {
       await db.studyLogs.add(log);
     }
+    if (selectedDate === today) {
+      await db.assignments.update(today, {
+        testStartedAt: null,
+        testCompletedAt: null
+      });
+    }
   });
 }
 
@@ -395,10 +400,25 @@ export async function updateTodayTarget(target) {
   const safeTarget = Number.isFinite(parsedTarget)
     ? Math.max(1, Math.floor(parsedTarget))
     : 1;
-  await setSetting("wordTarget", safeTarget);
   const assignment = await ensureTodayAssignment();
   const words = await db.words.orderBy("order").toArray();
   const wordMap = new Map(words.map((word) => [word.id, word]));
+  const isIncreasing = safeTarget > assignment.wordIds.length;
+  const testPassedToday = assignment.testCompletedAt?.startsWith(date);
+  const allCurrentWordsStudied =
+    assignment.wordIds.length > 0 &&
+    assignment.wordIds.every(
+      (id) => wordMap.get(id)?.lastStudiedDate === date
+    );
+  if (
+    isIncreasing &&
+    ((allCurrentWordsStudied && !testPassedToday) ||
+      (assignment.testStartedAt && !testPassedToday))
+  ) {
+    throw new Error("请先完成当前单词测试，再增加今日单词");
+  }
+
+  await setSetting("wordTarget", safeTarget);
   const studied = assignment.wordIds.filter(
     (id) => wordMap.get(id)?.lastStudiedDate === date
   );
@@ -419,7 +439,59 @@ export async function updateTodayTarget(target) {
     wordIds = [...wordIds, ...extra];
   }
 
-  await db.assignments.update(date, { wordIds, target: safeTarget });
+  const testingNeedsReset = wordIds.length > assignment.wordIds.length;
+  await db.assignments.update(date, {
+    wordIds,
+    target: safeTarget,
+    ...(testingNeedsReset
+      ? { testStartedAt: null, testCompletedAt: null }
+      : {})
+  });
+}
+
+export async function recordDailyQuizAnswer(word, isCorrect) {
+  const date = localDateKey();
+  if (isCorrect) {
+    await db.words.update(word.id, {
+      dailyQuizPassedDate: date,
+      lastStudiedDate: date,
+      status: word.status === "unfamiliar" ? "learning" : word.status,
+      updatedAt: new Date().toISOString()
+    });
+  } else {
+    await db.words.update(word.id, {
+      dailyQuizPassedDate: null,
+      lastStudiedDate: null,
+      status: "unfamiliar",
+      dueDate: addDays(date, 1),
+      updatedAt: new Date().toISOString()
+    });
+  }
+}
+
+export async function startDailyQuiz(date = localDateKey()) {
+  const assignment = await db.assignments.get(date);
+  if (!assignment) return null;
+  const next = {
+    ...assignment,
+    testStartedAt: assignment.testStartedAt || new Date().toISOString(),
+    testCompletedAt: null
+  };
+  await db.assignments.put(next);
+  return next;
+}
+
+export async function completeDailyQuiz(date = localDateKey()) {
+  const completedAt = new Date().toISOString();
+  const assignment = await db.assignments.get(date);
+  if (!assignment) return null;
+  const next = {
+    ...assignment,
+    testStartedAt: assignment.testStartedAt || completedAt,
+    testCompletedAt: completedAt
+  };
+  await db.assignments.put(next);
+  return next;
 }
 
 export async function saveImportedMaterial({

@@ -10,18 +10,24 @@ import {
   FileText,
   Headphones,
   Library,
+  LockKeyhole,
   LoaderCircle,
+  Play,
   Plus,
   Search,
   Sparkles,
   Trash2,
-  Volume2
+  Volume2,
+  X
 } from "lucide-react";
 import {
+  completeDailyQuiz,
   db,
   deleteWordSource,
   markWordStudy,
+  recordDailyQuizAnswer,
   saveWordPairs,
+  startDailyQuiz,
   updateTodayTarget
 } from "../db";
 import {
@@ -41,6 +47,44 @@ const studyChoices = [
   { id: "good", label: "已经认识", hint: "三天后复习" }
 ];
 
+function shuffled(values) {
+  const copy = [...values];
+  for (let index = copy.length - 1; index > 0; index -= 1) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [copy[index], copy[swapIndex]] = [copy[swapIndex], copy[index]];
+  }
+  return copy;
+}
+
+function createDailyTestQuestions(words, wordBank) {
+  const uniqueMeanings = [
+    ...new Map(
+      wordBank
+        .filter((word) => word.chinese?.trim())
+        .map((word) => [word.chinese, word])
+    ).values()
+  ];
+
+  return shuffled(words).map((word) => {
+    const distractors = shuffled(
+      uniqueMeanings.filter(
+        (candidate) =>
+          candidate.id !== word.id && candidate.chinese !== word.chinese
+      )
+    ).slice(0, 3);
+    if (distractors.length < 3) {
+      throw new Error("词库中不同的中文释义不足 4 个，暂时无法生成测试");
+    }
+    return {
+      word,
+      options: shuffled([
+        word.chinese,
+        ...distractors.map((candidate) => candidate.chinese)
+      ])
+    };
+  });
+}
+
 export default function Words({ data, refresh, showToast }) {
   const [index, setIndex] = useState(0);
   const [activeView, setActiveView] = useState("today");
@@ -58,6 +102,13 @@ export default function Words({ data, refresh, showToast }) {
   const [exportScope, setExportScope] = useState("all");
   const [exportSelectedIds, setExportSelectedIds] = useState([]);
   const [exportQuery, setExportQuery] = useState("");
+  const [quizOpen, setQuizOpen] = useState(false);
+  const [quizQuestions, setQuizQuestions] = useState([]);
+  const [quizIndex, setQuizIndex] = useState(0);
+  const [quizSelected, setQuizSelected] = useState("");
+  const [quizAnswers, setQuizAnswers] = useState([]);
+  const [quizFinished, setQuizFinished] = useState(false);
+  const [quizSaving, setQuizSaving] = useState(false);
   const [exportOptions, setExportOptions] = useState({
     wordsPerDay: data.wordTarget,
     daysPerPage: 3,
@@ -257,9 +308,13 @@ export default function Words({ data, refresh, showToast }) {
   }
 
   async function applyTarget() {
-    await updateTodayTarget(targetDraft);
-    await refresh();
-    showToast(`今日单词目标已调整为 ${targetDraft} 个`);
+    try {
+      await updateTodayTarget(targetDraft);
+      await refresh();
+      showToast(`今日单词目标已调整为 ${targetDraft} 个`);
+    } catch (error) {
+      showToast(error.message, "error");
+    }
   }
 
   function toggleExportWord(wordId) {
@@ -268,6 +323,72 @@ export default function Words({ data, refresh, showToast }) {
         ? current.filter((id) => id !== wordId)
         : [...current, wordId]
     );
+  }
+
+  async function startQuiz() {
+    const pendingWords = data.todayWords.filter(
+      (word) => word.dailyQuizPassedDate !== data.today
+    );
+    if (!pendingWords.length) {
+      showToast("今天的单词测试已经全部通过");
+      return;
+    }
+    try {
+      const questions = createDailyTestQuestions(pendingWords, data.words);
+      await startDailyQuiz(data.today);
+      await refresh({ light: true });
+      setQuizQuestions(questions);
+      setQuizIndex(0);
+      setQuizSelected("");
+      setQuizAnswers([]);
+      setQuizFinished(false);
+      setQuizOpen(true);
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+  }
+
+  async function chooseQuizOption(option) {
+    if (quizSelected || quizSaving) return;
+    const question = quizQuestions[quizIndex];
+    const isCorrect = option === question.word.chinese;
+    setQuizSaving(true);
+    setQuizSelected(option);
+    setQuizAnswers((answers) => {
+      const next = [...answers];
+      next[quizIndex] = {
+        word: question.word,
+        selected: option,
+        isCorrect
+      };
+      return next;
+    });
+    await recordDailyQuizAnswer(question.word, isCorrect);
+    await refresh({ light: true });
+    setQuizSaving(false);
+  }
+
+  async function nextQuizQuestion() {
+    if (quizIndex < quizQuestions.length - 1) {
+      setQuizIndex((index) => index + 1);
+      setQuizSelected("");
+      return;
+    }
+
+    const failed = quizAnswers.filter((answer) => answer && !answer.isCorrect);
+    if (!failed.length) {
+      await completeDailyQuiz(data.today);
+      await refresh();
+      setQuizFinished("passed");
+    } else {
+      await refresh();
+      setQuizFinished("failed");
+    }
+  }
+
+  function closeQuiz() {
+    setQuizOpen(false);
+    setQuizSelected("");
   }
 
   return (
@@ -380,6 +501,60 @@ export default function Words({ data, refresh, showToast }) {
           </div>
         </div>
       </section>
+
+      {activeView === "today" && todayWords.length ? (
+        <section
+          className={`daily-test-unlock ${
+            data.todayTestPassed
+              ? "is-passed"
+              : data.todayTestUnlocked
+                ? "is-ready"
+                : "is-locked"
+          }`}
+        >
+          <span className="daily-test-unlock__icon">
+            {data.todayTestPassed ? (
+              <Check size={20} />
+            ) : data.todayTestUnlocked ? (
+              <Play size={19} />
+            ) : (
+              <LockKeyhole size={18} />
+            )}
+          </span>
+          <div className="daily-test-unlock__copy">
+            <span className="eyebrow">DAILY CHECK</span>
+            <h3>
+              {data.todayTestPassed
+                ? "今日单词测试已通过"
+                : data.todayTestUnlocked
+                  ? "今日目标完成，单词测试已解锁"
+                  : data.todayTestStarted
+                    ? "继续完成未通过测试的单词"
+                    : "完成今日目标后解锁单词测试"}
+            </h3>
+            <p>
+              {data.todayTestPassed
+                ? "现在可以增加今日单词；新增单词完成学习后需要再次测试。"
+                : data.todayTestUnlocked
+                  ? "每个单词选择正确的中文意思，答错会重新进入学习。"
+                  : "完成当前词单后才能检查今天的掌握情况。"}
+            </p>
+          </div>
+          <div className="daily-test-unlock__progress">
+            <span>{data.todayQuizPassedCount}/{todayWords.length} 已通过</span>
+            {!data.todayTestPassed ? (
+              <button
+                className="primary-button"
+                onClick={startQuiz}
+                disabled={!data.todayTestUnlocked}
+              >
+                <Play size={16} />
+                {data.todayTestStarted ? "继续测试" : "开始单词测试"}
+              </button>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
 
       {activeView === "sources" ? (
         <section className="source-library panel">
@@ -673,6 +848,106 @@ export default function Words({ data, refresh, showToast }) {
               还有 {importPreview.pairs.length - 12} 组未在预览中展示
             </p>
           ) : null}
+        </Modal>
+      ) : null}
+
+      {quizOpen ? (
+        <Modal
+          title={
+            quizFinished === "passed"
+              ? "测试通过"
+              : quizFinished === "failed"
+                ? "测试未完成"
+                : "今日单词测试"
+          }
+          eyebrow={
+            quizFinished
+              ? "DAILY CHECK RESULT"
+              : `DAILY CHECK · ${Math.min(quizIndex + 1, quizQuestions.length)}/${quizQuestions.length}`
+          }
+          onClose={closeQuiz}
+          wide
+          footer={
+            quizFinished ? (
+              <button className="primary-button" onClick={closeQuiz}>
+                完成
+              </button>
+            ) : quizSelected ? (
+              <button
+                className="primary-button"
+                onClick={nextQuizQuestion}
+                disabled={quizSaving}
+              >
+                {quizIndex === quizQuestions.length - 1 ? "查看结果" : "下一题"}
+                <ArrowRight size={16} />
+              </button>
+            ) : null
+          }
+        >
+          {quizFinished === "passed" ? (
+            <div className="quiz-result">
+              <span className="quiz-result__icon"><Check size={28} /></span>
+              <h3>今天全部答对</h3>
+              <p>这些单词已通过今天的掌握检查，现在可以增加今日单词。</p>
+            </div>
+          ) : quizFinished === "failed" ? (
+            <div className="quiz-result quiz-result--failed">
+              <span className="quiz-result__icon"><X size={28} /></span>
+              <h3>有单词还需要继续学习</h3>
+              <p>
+                {quizAnswers
+                  .filter((answer) => answer && !answer.isCorrect)
+                  .map((answer) => answer.word.english)
+                  .join("、")}
+              </p>
+              <small>答错的单词已经撤销今日完成状态，请重新学习后再测试。</small>
+            </div>
+          ) : (
+            <div className="daily-test-question">
+              <span className="quiz-word">
+                {quizQuestions[quizIndex]?.word.english}
+              </span>
+              <h3>选择正确的中文意思</h3>
+              <div className="daily-test-options">
+                {quizQuestions[quizIndex]?.options.map((option, index) => {
+                  const correct =
+                    option === quizQuestions[quizIndex].word.chinese;
+                  const selected = option === quizSelected;
+                  return (
+                    <button
+                      key={`${option}-${index}`}
+                      className={[
+                        "daily-test-option",
+                        selected ? "is-selected" : "",
+                        quizSelected && correct ? "is-correct" : "",
+                        quizSelected && selected && !correct ? "is-wrong" : ""
+                      ].join(" ")}
+                      onClick={() => chooseQuizOption(option)}
+                      disabled={Boolean(quizSelected) || quizSaving}
+                    >
+                      <span>{String.fromCharCode(65 + index)}</span>
+                      <strong>{option}</strong>
+                      {quizSelected && correct ? <Check size={17} /> : null}
+                      {quizSelected && selected && !correct ? <X size={17} /> : null}
+                    </button>
+                  );
+                })}
+              </div>
+              {quizSelected ? (
+                <div
+                  className={`quiz-feedback ${
+                    quizSelected === quizQuestions[quizIndex].word.chinese
+                      ? "is-correct"
+                      : "is-wrong"
+                  }`}
+                >
+                  {quizSelected === quizQuestions[quizIndex].word.chinese
+                    ? "回答正确，这个单词今日已完成。"
+                    : `回答错误。正确释义：${quizQuestions[quizIndex].word.chinese}`}
+                </div>
+              ) : null}
+            </div>
+          )}
         </Modal>
       ) : null}
 

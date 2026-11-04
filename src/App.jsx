@@ -96,6 +96,10 @@ async function loadSnapshot() {
   const todayWords = assignment.wordIds
     .map((id) => wordMap.get(id))
     .filter(Boolean);
+  const todayWordDone = todayWords.filter(
+    (word) => word.lastStudiedDate === today
+  ).length;
+  const todayTestPassed = assignment.testCompletedAt?.startsWith(today);
   const statusCounts = {
     unfamiliar: words.filter((word) => word.status === "unfamiliar").length,
     learning: words.filter((word) => word.status === "learning").length,
@@ -132,8 +136,13 @@ async function loadSnapshot() {
     wordCount: words.length,
     wordTarget: Number(wordTarget),
     reviewTarget: Number(reviewTarget),
-    todayWordDone: todayWords.filter(
-      (word) => word.lastStudiedDate === today
+    todayWordDone,
+    todayTestUnlocked:
+      todayWords.length > 0 && todayWordDone >= todayWords.length,
+    todayTestPassed,
+    todayTestStarted: Boolean(assignment.testStartedAt) && !todayTestPassed,
+    todayQuizPassedCount: todayWords.filter(
+      (word) => word.dailyQuizPassedDate === today
     ).length,
     dueWords,
     dueCount: dueWords.length,
