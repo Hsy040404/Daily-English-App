@@ -355,6 +355,7 @@ export async function markWordStudy(
     existing?.lastStudiedDate && existing.lastStudiedDate > selectedDate
       ? existing.lastStudiedDate
       : selectedDate;
+  const preservedQuizPassedDate = existing?.dailyQuizPassedDate || null;
 
   await db.transaction("rw", db.words, db.studyLogs, db.assignments, async () => {
     await db.words.update(word.id, {
@@ -363,9 +364,7 @@ export async function markWordStudy(
       lastStudiedDate: latestStudyDate,
       note: typeof note === "string" ? note : word.note || "",
       dailyQuizPassedDate:
-        selectedDate === today
-          ? null
-          : existing?.dailyQuizPassedDate || null,
+        preservedQuizPassedDate,
       updatedAt: new Date().toISOString()
     });
     const existingLog = await db.studyLogs
@@ -385,7 +384,7 @@ export async function markWordStudy(
     } else {
       await db.studyLogs.add(log);
     }
-    if (selectedDate === today) {
+    if (selectedDate === today && preservedQuizPassedDate !== today) {
       await db.assignments.update(today, {
         testStartedAt: null,
         testCompletedAt: null

@@ -642,6 +642,29 @@ const tests = {
     await page.getByRole("button", { name: "完成" }).click();
     await page.getByText("今日单词测试已通过").waitFor();
 
+    const today = await page.evaluate(() => {
+      const date = new Date();
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    });
+    const firstAssignment = (
+      await readIndexedDb(page, "assignments")
+    ).find((item) => item.date === today);
+    const firstBatchIds = new Set(firstAssignment.wordIds);
+    await page
+      .locator(".mini-word-list button")
+      .filter({ hasText: "make" })
+      .click();
+    await page.locator(".word-navigation .study-choice--hard").click();
+    await page.waitForTimeout(300);
+    const preservedWord = (
+      await readIndexedDb(page, "words")
+    ).find((word) => word.english === "make");
+    assert(
+      preservedWord.dailyQuizPassedDate === today,
+      "重新查看已通过单词时丢失了测试通过状态"
+    );
+
     await targetInput.fill("15");
     await page.locator(".target-control button").click();
     await page.waitForTimeout(500);
@@ -650,11 +673,6 @@ const tests = {
       "测试通过后没有成功增加今日单词"
     );
 
-    const today = await page.evaluate(() => {
-      const date = new Date();
-      const pad = (value) => String(value).padStart(2, "0");
-      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-    });
     const refreshedWords = await readIndexedDb(page, "words");
     const assignments = await readIndexedDb(page, "assignments");
     const todayAssignment = assignments.find((item) => item.date === today);
@@ -663,17 +681,34 @@ const tests = {
       .map((id) => wordMap.get(id))
       .filter((word) => word && word.lastStudiedDate !== today);
     assert(newWords.length === 5, "新增的五个今日单词状态不正确");
-    for (const word of newWords) {
-      await page
-        .locator(".mini-word-list button")
-        .filter({ hasText: word.english })
-        .click();
+    const focusedAfterIncrease = (
+      await page.locator(".word-display h2").innerText()
+    ).trim();
+    assert(
+      !firstBatchIds.has(
+        refreshedWords.find((word) => word.english === focusedAfterIncrease)?.id
+      ),
+      "增加单词后仍停留在已经通过测试的旧单词"
+    );
+    for (let index = 0; index < newWords.length; index += 1) {
+      const focused = (
+        await page.locator(".word-display h2").innerText()
+      ).trim();
+      assert(
+        newWords.some((word) => word.english === focused),
+        "学习导航没有跳到下一个未学习的新单词"
+      );
       await page.locator(".word-navigation .study-choice--good").click();
-      await page.waitForTimeout(220);
+      await page.waitForTimeout(260);
     }
     await page
       .getByRole("button", { name: /开始单词测试|继续测试/ })
       .click();
+    await page.locator(".quiz-word").waitFor();
+    assert(
+      (await page.locator(".modal__header .eyebrow").innerText()).trim().endsWith("/5"),
+      "扩容后的测试错误地包含了已经通过的旧单词"
+    );
 
     const wrongAnswer = await answerOne({ wrong: true });
     await page.getByRole("button", { name: /下一题/ }).click();
@@ -721,6 +756,10 @@ const tests = {
     assert(
       (await page.locator(".daily-test-option").count()) === 4,
       "补学后重测没有生成四个选项"
+    );
+    assert(
+      (await page.locator(".modal__header .eyebrow").innerText()).trim().endsWith("/1"),
+      "补学后的重测没有只包含未通过单词"
     );
     await answerOne();
     await page.getByRole("button", { name: /查看结果/ }).click();

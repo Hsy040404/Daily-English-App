@@ -123,12 +123,24 @@ export default function Words({ data, refresh, showToast }) {
     (word) => word.lastStudiedDate === data.today
   ).length;
   const progress = todayWords.length ? (done / todayWords.length) * 100 : 0;
+  const studySignature = todayWords
+    .map((word) => `${word.id}:${word.lastStudiedDate || ""}`)
+    .join("|");
 
   useEffect(() => {
-    setIndex((value) => Math.min(value, Math.max(todayWords.length - 1, 0)));
+    setIndex((value) => {
+      const safeValue = Math.min(value, Math.max(todayWords.length - 1, 0));
+      if (todayWords[safeValue]?.lastStudiedDate === data.today) {
+        const firstPending = todayWords.findIndex(
+          (word) => word.lastStudiedDate !== data.today
+        );
+        if (firstPending >= 0) return firstPending;
+      }
+      return safeValue;
+    });
     setRevealed(false);
     if (currentWord) setNote(currentWord.note || "");
-  }, [currentWord?.id, todayWords.length]);
+  }, [currentWord?.id, studySignature, todayWords.length]);
 
   useEffect(() => {
     setTargetDraft(data.wordTarget);
@@ -194,11 +206,15 @@ export default function Words({ data, refresh, showToast }) {
   async function mark(rating) {
     if (!currentWord) return;
     await markWordStudy(currentWord, rating, note);
-    await refresh();
-    if (index < todayWords.length - 1) {
-      selectWord(index + 1);
+    const updated = await refresh();
+    const pendingIndex = updated.todayWords.findIndex(
+      (word) => word.lastStudiedDate !== updated.today
+    );
+    if (pendingIndex >= 0) {
+      setIndex(pendingIndex);
+      setRevealed(false);
     } else {
-      showToast("今天的单词已经全部过了一遍");
+      showToast("今日待学习单词已经完成，可以进行单词测试");
     }
   }
 
