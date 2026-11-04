@@ -70,6 +70,7 @@ try {
   for (let issue = 2; issue <= 7; issue += 1) {
     await run(`New issue ${issue}`, ["scripts/issue-tests.mjs", `n${issue}`]);
   }
+  await run("Oversized unfinished plan", ["scripts/issue-tests.mjs", "v1"]);
   await run("Answer page export", ["scripts/test-answer-export.mjs"]);
   await run("Full end-to-end workflow", ["scripts/e2e.mjs"], {
     BASE_URL: "http://127.0.0.1:4173"

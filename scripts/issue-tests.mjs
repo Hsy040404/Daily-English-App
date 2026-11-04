@@ -481,6 +481,105 @@ const tests = {
       fullPage: true
     });
   },
+  v1: async ({ page }) => {
+    const dates = await page.evaluate(() => {
+      const pad = (value) => String(value).padStart(2, "0");
+      const key = (date) =>
+        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      const today = new Date();
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return { today: key(today), yesterday: key(yesterday) };
+    });
+    const words = await readIndexedDb(page, "words");
+    await putIndexedDb(page, "words", {
+      ...words[0],
+      status: "known",
+      reviewStage: 1,
+      dueDate: dates.today
+    });
+    await putIndexedDb(page, "settings", {
+      key: "wordTarget",
+      value: 999,
+      updatedAt: new Date().toISOString()
+    });
+    await page.evaluate(
+      ({ yesterday, today, wordIds }) =>
+        new Promise((resolve, reject) => {
+          const request = indexedDB.open("dailyEnglishPersonal");
+          request.onerror = () => reject(request.error);
+          request.onsuccess = () => {
+            const database = request.result;
+            const transaction = database.transaction(
+              "assignments",
+              "readwrite"
+            );
+            const store = transaction.objectStore("assignments");
+            store.clear();
+            store.put({
+              date: yesterday,
+              wordIds,
+              target: 999,
+              createdAt: new Date().toISOString()
+            });
+            store.put({
+              date: today,
+              wordIds: [],
+              target: 999,
+              createdAt: new Date().toISOString()
+            });
+            transaction.oncomplete = () => {
+              database.close();
+              resolve(true);
+            };
+            transaction.onerror = () => reject(transaction.error);
+          };
+        }),
+      {
+        yesterday: dates.yesterday,
+        today: dates.today,
+        wordIds: words.map((word) => word.id)
+      }
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    await navigate(page, "每日单词");
+    assert(
+      (await page.locator(".word-focus").count()) === 1,
+      "未完成的昨日单词没有进入今天的学习计划"
+    );
+    assert(
+      (await page.locator(".word-focus__top .quiet-label").innerText()).trim() ===
+        "1 / 119",
+      "今天的单词计划没有按实际未完成数量生成"
+    );
+    assert(
+      (await page.locator(".mini-word-list button").count()) === 119,
+      "未完成单词的延续数量不正确"
+    );
+    const assignments = await readIndexedDb(page, "assignments");
+    const todayAssignment = assignments.find(
+      (assignment) => assignment.date === dates.today
+    );
+    assert(
+      todayAssignment?.wordIds.length === 119,
+      "今天实际分配数量没有限制为可学习单词数"
+    );
+    await navigate(page, "今日总览");
+    assert(
+      (await page.locator(".summary-card").first().innerText()).includes("0/119"),
+      "首页错误地把未完成单词显示为已完成"
+    );
+    assert(
+      !(await page.locator(".plan-row").first().getAttribute("class")).includes(
+        "is-done"
+      ),
+      "首页把未完成的单词计划标记成完成"
+    );
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-v1.png"),
+      fullPage: true
+    });
+  },
   2: async ({ page }) => {
     await navigate(page, "每日单词");
     await page.getByRole("tab", { name: /全部词库/ }).click();

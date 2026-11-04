@@ -594,8 +594,8 @@ export default function Words({ data, refresh, showToast }) {
         <section className="panel">
           <EmptyState
             icon={<BookOpen size={28} />}
-            title="今天没有新的单词安排"
-            description="词库中的词已经全部排入学习计划。你仍然可以导入新的词表，或前往复习模块继续巩固。"
+            title="当前没有待学习的新词"
+            description="词库里的单词都已经完成第一次学习。你可以导入新的词表，或前往复习模块继续巩固。"
             action={
               <button className="secondary-button" onClick={() => fileInput.current?.click()}>
                 <Plus size={17} /> 导入新词表

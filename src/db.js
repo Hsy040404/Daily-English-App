@@ -274,15 +274,48 @@ export async function normalizeStoredWords() {
 export async function ensureTodayAssignment() {
   const date = localDateKey();
   const existing = await db.assignments.get(date);
-  if (existing) return existing;
 
   const target = Number(await getSetting("wordTarget", defaults.wordTarget));
   const assignments = await db.assignments.toArray();
-  const assignedIds = new Set(assignments.flatMap((item) => item.wordIds));
   const words = await db.words.orderBy("order").toArray();
-  const candidates = words.filter(
-    (word) => !assignedIds.has(word.id) && word.status === "new"
+  const wordMap = new Map(words.map((word) => [word.id, word]));
+  const previousIds = [
+    ...new Set(
+      assignments
+        .filter((item) => item.date < date)
+        .sort((left, right) => right.date.localeCompare(left.date))
+        .flatMap((item) => item.wordIds)
+    )
+  ];
+  const carryover = previousIds
+    .map((id) => wordMap.get(id))
+    .filter((word) => word?.status === "new");
+  const carryoverIds = new Set(carryover.map((word) => word.id));
+  const remainingNew = words.filter(
+    (word) => word.status === "new" && !carryoverIds.has(word.id)
   );
+  const candidates = [...carryover, ...remainingNew];
+
+  if (existing) {
+    const validIds = existing.wordIds.filter((id) => wordMap.has(id));
+    const existingIds = new Set(validIds);
+    const availableIds = candidates
+      .filter((word) => !existingIds.has(word.id))
+      .map((word) => word.id);
+    const needed = Math.max(0, Math.min(target, candidates.length) - validIds.length);
+    if (needed > 0 || validIds.length !== existing.wordIds.length) {
+      const repaired = {
+        ...existing,
+        wordIds: [...validIds, ...availableIds.slice(0, needed)],
+        target,
+        repairedAt: new Date().toISOString()
+      };
+      await db.assignments.put(repaired);
+      return repaired;
+    }
+    return existing;
+  }
+
   const wordIds = candidates.slice(0, target).map((word) => word.id);
   const assignment = {
     date,
@@ -376,11 +409,11 @@ export async function updateTodayTarget(target) {
   let wordIds = [...studied, ...pending.slice(0, keepCount)];
 
   if (wordIds.length < safeTarget) {
-    const assignedIds = new Set(
-      (await db.assignments.toArray()).flatMap((item) => item.wordIds)
-    );
     const extra = words
-      .filter((word) => !assignedIds.has(word.id) && word.status === "new")
+      .filter(
+        (word) =>
+          word.status === "new" && !wordIds.includes(word.id)
+      )
       .slice(0, safeTarget - wordIds.length)
       .map((word) => word.id);
     wordIds = [...wordIds, ...extra];
