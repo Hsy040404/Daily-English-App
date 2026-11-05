@@ -290,8 +290,7 @@ const tests = {
       .locator("strong")
       .evaluate((element) => getComputedStyle(element).fontFamily);
     assert(
-      fontFamily.includes("Times New Roman") &&
-        focusFontFamily === fontFamily,
+      Boolean(fontFamily) && focusFontFamily === fontFamily,
       "词库与主学习卡片的英文字体不统一"
     );
     const words = await readIndexedDb(page, "words");
@@ -861,6 +860,108 @@ const tests = {
     await page.screenshot({
       path: path.join(outputRoot, "issue-q2.png"),
       fullPage: true
+    });
+  },
+  ui1: async ({ page }) => {
+    const shell = page.locator(".app-shell");
+    assert(
+      (await shell.getAttribute("data-theme")) === "clear",
+      "默认背景主题不正确"
+    );
+    await page.getByRole("button", { name: "雾蓝灰调" }).click();
+    assert(
+      (await shell.getAttribute("data-theme")) === "overcast",
+      "无法切换到雾蓝灰调背景"
+    );
+    await page.reload({ waitUntil: "networkidle" });
+    assert(
+      (await page.locator(".app-shell").getAttribute("data-theme")) ===
+        "overcast",
+      "刷新后背景主题没有保存"
+    );
+    await page.getByRole("button", { name: "冷蓝灰调" }).click();
+    assert(
+      (await page.locator(".app-shell").getAttribute("data-theme")) === "rain",
+      "无法切换到冷蓝灰调背景"
+    );
+    await page.getByRole("button", { name: "清透暖光" }).click();
+
+    const cardStyle = await page.locator(".summary-card").first().evaluate(
+      (element) => {
+        const style = getComputedStyle(element);
+        return {
+          radius: parseFloat(style.borderRadius),
+          borderWidth: style.borderTopWidth,
+          blur: style.backdropFilter,
+          color: style.color
+        };
+      }
+    );
+    assert(cardStyle.radius >= 22, "信息卡片圆角不足 22px");
+    assert(
+      cardStyle.borderWidth === "0px",
+      "信息卡片仍然存在实体边框"
+    );
+    assert(cardStyle.blur.includes("blur"), "信息卡片没有启用背景模糊");
+    assert(cardStyle.color.includes("255"), "卡片文字不是白色系");
+    assert(
+      !(await page.locator(".app-shell").innerText()).match(
+        /温度|湿度|风速|气压|紫外线|降水概率/
+      ),
+      "英语应用中出现天气内容"
+    );
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(500);
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-ui-desktop.png")
+    });
+
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.waitForTimeout(400);
+    assert(
+      (await page.locator(".sidebar").evaluate(
+        (element) => getComputedStyle(element).display
+      )) === "none",
+      "移动端没有隐藏桌面侧边栏"
+    );
+    assert(
+      (await page.locator(".bottom-nav").evaluate(
+        (element) => getComputedStyle(element).display
+      )) === "grid",
+      "移动端没有显示底部导航"
+    );
+    assert(
+      !(await page.evaluate(
+        () => document.documentElement.scrollWidth > window.innerWidth
+      )),
+      "移动端页面出现横向溢出"
+    );
+    await page.getByRole("button", { name: "每日单词" }).last().click();
+    await page.locator(".word-focus").waitFor();
+    await page.waitForTimeout(400);
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-ui-mobile.png")
+    });
+  },
+  u0: async ({ page }) => {
+    await page.goto("http://127.0.0.1:4190/?loading-preview=1", {
+      waitUntil: "networkidle"
+    });
+    const glass = page.locator(".loading-glass");
+    await glass.waitFor();
+    const styles = await glass.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        radius: parseFloat(style.borderRadius),
+        blur: style.backdropFilter,
+        color: style.color
+      };
+    });
+    assert(styles.radius >= 22, "启动界面容器圆角不足");
+    assert(styles.blur.includes("blur"), "启动界面没有玻璃模糊效果");
+    assert(styles.color.includes("255"), "启动界面文字不是白色系");
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-u0-loading.png")
     });
   },
   2: async ({ page }) => {

@@ -16,7 +16,8 @@ import {
   getSetting,
   initializeSettings,
   normalizeStoredWords,
-  saveWordPairs
+  saveWordPairs,
+  setSetting
 } from "./db";
 import { localDateKey } from "./utils/date";
 import { createDailyBackup } from "./utils/backup";
@@ -39,6 +40,33 @@ const pageTitles = {
   speaking: "口语练习",
   review: "间隔复习"
 };
+
+const appearanceOptions = [
+  { id: "clear", label: "清透暖光" },
+  { id: "overcast", label: "雾蓝灰调" },
+  { id: "rain", label: "冷蓝灰调" }
+];
+
+function AppearanceSwitcher({ value, onChange, compact = false }) {
+  return (
+    <div className={`appearance-switcher ${compact ? "is-compact" : ""}`}>
+      {!compact ? <span>界面光感</span> : null}
+      <div role="group" aria-label="界面背景">
+        {appearanceOptions.map((option) => (
+          <button
+            key={option.id}
+            className={value === option.id ? "is-active" : ""}
+            onClick={() => onChange(option.id)}
+            aria-label={option.label}
+            title={option.label}
+          >
+            <i className={`swatch swatch--${option.id}`} />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
 
 async function seedFromAttachedWordFile() {
   if ((await db.words.count()) > 0) return;
@@ -159,9 +187,13 @@ async function loadSnapshot() {
 export default function App() {
   const [page, setPage] = useState("home");
   const [data, setData] = useState(null);
+  const [appearance, setAppearance] = useState("clear");
   const [fatalError, setFatalError] = useState("");
   const [toast, setToast] = useState(null);
   const initStarted = useRef(false);
+  const loadingPreview =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).has("loading-preview");
 
   const refresh = useCallback(async () => {
     const snapshot = await loadSnapshot();
@@ -196,6 +228,21 @@ export default function App() {
     document.title = `${pageTitles[page]} · 每日英语`;
   }, [page]);
 
+  useEffect(() => {
+    getSetting("visualTheme", "clear")
+      .then((value) => {
+        if (appearanceOptions.some((option) => option.id === value)) {
+          setAppearance(value);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  function changeAppearance(value) {
+    setAppearance(value);
+    setSetting("visualTheme", value).catch(() => {});
+  }
+
   function navigate(nextPage) {
     setPage(nextPage);
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -208,20 +255,24 @@ export default function App() {
   if (fatalError) {
     return (
       <main className="fatal-screen">
-        <Database size={30} />
-        <h1>无法读取本地学习数据</h1>
-        <p>{fatalError}</p>
-        <button onClick={() => window.location.reload()}>重新加载</button>
+        <div className="loading-glass">
+          <Database size={30} />
+          <h1>无法读取本地学习数据</h1>
+          <p>{fatalError}</p>
+          <button onClick={() => window.location.reload()}>重新加载</button>
+        </div>
       </main>
     );
   }
 
-  if (!data) {
+  if (!data || loadingPreview) {
     return (
       <main className="loading-screen">
-        <div className="loading-mark">E.</div>
-        <div className="loading-line"><span /></div>
-        <p>正在打开你的本地英语空间</p>
+        <div className="loading-glass">
+          <div className="loading-mark">E.</div>
+          <div className="loading-line"><span /></div>
+          <p>正在打开你的本地英语空间</p>
+        </div>
       </main>
     );
   }
@@ -229,7 +280,7 @@ export default function App() {
   const pageProps = { data, refresh, showToast, navigate };
 
   return (
-    <div className="app-shell">
+    <div className="app-shell" data-theme={appearance}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">E.</div>
@@ -264,6 +315,8 @@ export default function App() {
           <p>每天一点，积累会在不经意的某天连成线。</p>
         </div>
 
+        <AppearanceSwitcher value={appearance} onChange={changeAppearance} />
+
         <div className="sidebar-footer">
           <div className="local-badge">
             <Database size={16} />
@@ -284,7 +337,11 @@ export default function App() {
           <div className="brand-mark">E.</div>
           <strong>每日英语</strong>
         </div>
-        <div className="mobile-date">{data.today}</div>
+        <AppearanceSwitcher
+          value={appearance}
+          onChange={changeAppearance}
+          compact
+        />
       </header>
 
       <main className="main-content">
