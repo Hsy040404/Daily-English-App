@@ -1038,6 +1038,29 @@ const tests = {
       path: path.join(outputRoot, "issue-ui-contrast.png")
     });
   },
+  fix1: async ({ page }) => {
+    const previousButton = page.getByRole("button", { name: "上个月" });
+    const nextButton = page.getByRole("button", { name: "下个月" });
+    await previousButton.scrollIntoViewIfNeeded();
+    const styles = await previousButton.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        color: style.color,
+        borderWidth: style.borderTopWidth
+      };
+    });
+    assert(styles.background !== "rgb(255, 255, 255)", "月份按钮仍是白色实底");
+    assert(styles.color.includes("255"), "月份切换箭头不是白色系");
+    assert(styles.borderWidth === "0px", "月份切换按钮仍带实体边框");
+    const monthBefore = await page.locator(".calendar-navigation strong").innerText();
+    await nextButton.click();
+    const monthAfter = await page.locator(".calendar-navigation strong").innerText();
+    assert(monthBefore !== monthAfter, "月份切换按钮没有实际功能");
+    await page.locator(".activity-calendar").screenshot({
+      path: path.join(outputRoot, "issue-fix1-calendar.png")
+    });
+  },
   u0: async ({ page }) => {
     await page.goto("http://127.0.0.1:4190/?loading-preview=1", {
       waitUntil: "networkidle"
