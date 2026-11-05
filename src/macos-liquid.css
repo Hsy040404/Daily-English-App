@@ -11,10 +11,23 @@
   --text-faint: rgba(255, 255, 255, 0.56);
   --glass-shadow: 0 22px 60px rgba(24, 47, 66, 0.14);
   --english-font: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Segoe UI", sans-serif;
-  --page-gradient:
+  --spring-gradient:
     radial-gradient(circle at 16% 2%, rgba(255, 236, 203, 0.3), transparent 34rem),
-    radial-gradient(circle at 88% 18%, rgba(214, 238, 252, 0.36), transparent 38rem),
+    radial-gradient(circle at 88% 18%, rgba(213, 241, 228, 0.34), transparent 38rem),
+    linear-gradient(145deg, #3f6c68 0%, #72a39d 46%, #315f5b 100%);
+  --summer-gradient:
+    radial-gradient(circle at 14% 4%, rgba(255, 233, 190, 0.28), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(195, 233, 251, 0.32), transparent 38rem),
     linear-gradient(145deg, #3e6680 0%, #6a95ad 46%, #365b74 100%);
+  --autumn-gradient:
+    radial-gradient(circle at 16% 4%, rgba(255, 224, 179, 0.24), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(231, 211, 190, 0.22), transparent 38rem),
+    linear-gradient(145deg, #5f4f42 0%, #92745c 46%, #5a4338 100%);
+  --winter-gradient:
+    radial-gradient(circle at 16% 4%, rgba(225, 240, 247, 0.2), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(196, 220, 232, 0.22), transparent 38rem),
+    linear-gradient(145deg, #304b58 0%, #627f8c 46%, #28424f 100%);
+  --page-gradient: var(--spring-gradient);
   position: relative;
   min-height: 100vh;
   color: var(--text-primary);
@@ -23,18 +36,28 @@
   -webkit-font-smoothing: antialiased;
 }
 
-.app-shell[data-theme="overcast"] {
-  --page-gradient:
-    radial-gradient(circle at 18% 8%, rgba(230, 238, 244, 0.22), transparent 35rem),
-    radial-gradient(circle at 82% 22%, rgba(193, 211, 226, 0.2), transparent 38rem),
-    linear-gradient(145deg, #425764 0%, #617681 46%, #394c58 100%);
+.app-shell[data-theme="spring"],
+.loading-screen[data-theme="spring"],
+.fatal-screen[data-theme="spring"] {
+  --page-gradient: var(--spring-gradient);
 }
 
-.app-shell[data-theme="rain"] {
-  --page-gradient:
-    radial-gradient(circle at 12% 10%, rgba(205, 225, 237, 0.16), transparent 34rem),
-    radial-gradient(circle at 92% 14%, rgba(179, 205, 222, 0.2), transparent 36rem),
-    linear-gradient(145deg, #243a4a 0%, #405f72 46%, #1d2f3e 100%);
+.app-shell[data-theme="summer"],
+.loading-screen[data-theme="summer"],
+.fatal-screen[data-theme="summer"] {
+  --page-gradient: var(--summer-gradient);
+}
+
+.app-shell[data-theme="autumn"],
+.loading-screen[data-theme="autumn"],
+.fatal-screen[data-theme="autumn"] {
+  --page-gradient: var(--autumn-gradient);
+}
+
+.app-shell[data-theme="winter"],
+.loading-screen[data-theme="winter"],
+.fatal-screen[data-theme="winter"] {
+  --page-gradient: var(--winter-gradient);
 }
 
 .app-shell::before {
@@ -60,15 +83,31 @@
 
 .loading-screen,
 .fatal-screen {
+  --spring-gradient:
+    radial-gradient(circle at 16% 2%, rgba(255, 236, 203, 0.3), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(213, 241, 228, 0.34), transparent 38rem),
+    linear-gradient(145deg, #3f6c68 0%, #72a39d 46%, #315f5b 100%);
+  --summer-gradient:
+    radial-gradient(circle at 14% 4%, rgba(255, 233, 190, 0.28), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(195, 233, 251, 0.32), transparent 38rem),
+    linear-gradient(145deg, #3e6680 0%, #6a95ad 46%, #365b74 100%);
+  --autumn-gradient:
+    radial-gradient(circle at 16% 4%, rgba(255, 224, 179, 0.24), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(231, 211, 190, 0.22), transparent 38rem),
+    linear-gradient(145deg, #5f4f42 0%, #92745c 46%, #5a4338 100%);
+  --winter-gradient:
+    radial-gradient(circle at 16% 4%, rgba(225, 240, 247, 0.2), transparent 34rem),
+    radial-gradient(circle at 88% 18%, rgba(196, 220, 232, 0.22), transparent 38rem),
+    linear-gradient(145deg, #304b58 0%, #627f8c 46%, #28424f 100%);
+  --page-gradient: var(--spring-gradient);
+  --text-secondary: rgba(255, 255, 255, 0.9);
   position: fixed;
   inset: 0;
   display: grid;
   place-items: center;
   color: #fff;
-  background:
-    radial-gradient(circle at 20% 10%, rgba(255, 244, 217, 0.24), transparent 34rem),
-    radial-gradient(circle at 84% 20%, rgba(225, 243, 255, 0.28), transparent 38rem),
-    linear-gradient(145deg, #3e6680, #6a95ad 48%, #365b74);
+  background: var(--page-gradient);
+  transition: background 900ms ease;
 }
 
 .loading-screen::after,
@@ -240,73 +279,70 @@ body {
   border-top-color: rgba(255, 255, 255, 0.13);
 }
 
-.appearance-switcher {
-  margin-top: 16px;
+.season-indicator {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin-top: 15px;
   color: var(--text-muted);
 }
 
-.appearance-switcher > span {
+.season-indicator > div > span,
+.season-indicator > div > strong {
   display: block;
-  margin-bottom: 8px;
-  font-size: 9px;
 }
 
-.appearance-switcher > div {
-  display: flex;
-  gap: 7px;
+.season-indicator > div > span {
+  font-size: 8px;
 }
 
-.appearance-switcher button {
-  width: 29px;
-  height: 29px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 9px;
-  background: rgba(255, 255, 255, 0.09);
-  cursor: pointer;
-  transition:
-    background-color 350ms ease-out,
-    box-shadow 350ms ease-out;
+.season-indicator > div > strong {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 10px;
+  font-weight: 500;
 }
 
-.appearance-switcher button.is-active {
-  background: rgba(255, 255, 255, 0.24);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28);
-}
-
-.appearance-switcher .swatch {
-  width: 15px;
-  height: 15px;
+.season-orb {
+  width: 27px;
+  height: 27px;
+  display: block;
+  flex: 0 0 auto;
   border-radius: 50%;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+  background: rgba(255, 255, 255, 0.18);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 5px 14px rgba(20, 40, 54, 0.12);
 }
 
-.swatch--clear {
-  background: linear-gradient(145deg, #f4e0b7, #8dc9e8);
+.season-orb--spring {
+  background: linear-gradient(145deg, #d5e9d7, #75a899);
 }
 
-.swatch--overcast {
-  background: linear-gradient(145deg, #d5dde4, #879aa9);
+.season-orb--summer {
+  background: linear-gradient(145deg, #e9d5ac, #72a8c7);
 }
 
-.swatch--rain {
-  background: linear-gradient(145deg, #a8c2d4, #5f7c91);
+.season-orb--autumn {
+  background: linear-gradient(145deg, #d9b185, #88624d);
 }
 
-.appearance-switcher.is-compact {
+.season-orb--winter {
+  background: linear-gradient(145deg, #dce8ee, #6f8997);
+}
+
+.season-indicator.is-compact {
   margin: 0;
 }
 
-.appearance-switcher.is-compact > div {
-  gap: 5px;
+.season-indicator.is-compact .season-orb {
+  width: 25px;
+  height: 25px;
 }
 
-.appearance-switcher.is-compact button {
-  width: 27px;
-  height: 27px;
-  background: rgba(255, 255, 255, 0.13);
+.season-indicator.is-compact > div > strong {
+  margin: 0;
+  font-size: 9px;
 }
 
 .page-heading,

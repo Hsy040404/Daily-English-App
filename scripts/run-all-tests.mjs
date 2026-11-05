@@ -75,6 +75,7 @@ try {
   await run("Daily quiz resume", ["scripts/issue-tests.mjs", "q2"]);
   await run("Liquid glass visual layer", ["scripts/issue-tests.mjs", "ui1"]);
   await run("Liquid glass loading screen", ["scripts/issue-tests.mjs", "u0"]);
+  await run("Seasonal background mapping", ["scripts/test-season.mjs"]);
   await run("Answer page export", ["scripts/test-answer-export.mjs"]);
   await run("Full end-to-end workflow", ["scripts/e2e.mjs"], {
     BASE_URL: "http://127.0.0.1:4173"

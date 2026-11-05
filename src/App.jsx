@@ -16,10 +16,10 @@ import {
   getSetting,
   initializeSettings,
   normalizeStoredWords,
-  saveWordPairs,
-  setSetting
+  saveWordPairs
 } from "./db";
 import { localDateKey } from "./utils/date";
+import { getSeasonForDate, getSeasonLabel } from "./utils/season";
 import { createDailyBackup } from "./utils/backup";
 import { Toast } from "./components/ui";
 import Home from "./pages/Home";
@@ -41,28 +41,13 @@ const pageTitles = {
   review: "间隔复习"
 };
 
-const appearanceOptions = [
-  { id: "clear", label: "清透暖光" },
-  { id: "overcast", label: "雾蓝灰调" },
-  { id: "rain", label: "冷蓝灰调" }
-];
-
-function AppearanceSwitcher({ value, onChange, compact = false }) {
+function SeasonIndicator({ season, compact = false }) {
   return (
-    <div className={`appearance-switcher ${compact ? "is-compact" : ""}`}>
-      {!compact ? <span>界面光感</span> : null}
-      <div role="group" aria-label="界面背景">
-        {appearanceOptions.map((option) => (
-          <button
-            key={option.id}
-            className={value === option.id ? "is-active" : ""}
-            onClick={() => onChange(option.id)}
-            aria-label={option.label}
-            title={option.label}
-          >
-            <i className={`swatch swatch--${option.id}`} />
-          </button>
-        ))}
+    <div className={`season-indicator ${compact ? "is-compact" : ""}`}>
+      <i className={`season-orb season-orb--${season}`} />
+      <div>
+        {!compact ? <span>季节光感</span> : null}
+        <strong>{getSeasonLabel(season)}</strong>
       </div>
     </div>
   );
@@ -187,7 +172,7 @@ async function loadSnapshot() {
 export default function App() {
   const [page, setPage] = useState("home");
   const [data, setData] = useState(null);
-  const [appearance, setAppearance] = useState("clear");
+  const [season, setSeason] = useState(() => getSeasonForDate());
   const [fatalError, setFatalError] = useState("");
   const [toast, setToast] = useState(null);
   const initStarted = useRef(false);
@@ -229,19 +214,12 @@ export default function App() {
   }, [page]);
 
   useEffect(() => {
-    getSetting("visualTheme", "clear")
-      .then((value) => {
-        if (appearanceOptions.some((option) => option.id === value)) {
-          setAppearance(value);
-        }
-      })
-      .catch(() => {});
+    const timer = window.setInterval(
+      () => setSeason(getSeasonForDate()),
+      60 * 60 * 1000
+    );
+    return () => window.clearInterval(timer);
   }, []);
-
-  function changeAppearance(value) {
-    setAppearance(value);
-    setSetting("visualTheme", value).catch(() => {});
-  }
 
   function navigate(nextPage) {
     setPage(nextPage);
@@ -254,7 +232,7 @@ export default function App() {
 
   if (fatalError) {
     return (
-      <main className="fatal-screen">
+      <main className="fatal-screen" data-theme={season}>
         <div className="loading-glass">
           <Database size={30} />
           <h1>无法读取本地学习数据</h1>
@@ -267,7 +245,7 @@ export default function App() {
 
   if (!data || loadingPreview) {
     return (
-      <main className="loading-screen">
+      <main className="loading-screen" data-theme={season}>
         <div className="loading-glass">
           <div className="loading-mark">E.</div>
           <div className="loading-line"><span /></div>
@@ -280,7 +258,7 @@ export default function App() {
   const pageProps = { data, refresh, showToast, navigate };
 
   return (
-    <div className="app-shell" data-theme={appearance}>
+    <div className="app-shell" data-theme={season}>
       <aside className="sidebar">
         <div className="brand">
           <div className="brand-mark">E.</div>
@@ -315,7 +293,7 @@ export default function App() {
           <p>每天一点，积累会在不经意的某天连成线。</p>
         </div>
 
-        <AppearanceSwitcher value={appearance} onChange={changeAppearance} />
+        <SeasonIndicator season={season} />
 
         <div className="sidebar-footer">
           <div className="local-badge">
@@ -337,11 +315,7 @@ export default function App() {
           <div className="brand-mark">E.</div>
           <strong>每日英语</strong>
         </div>
-        <AppearanceSwitcher
-          value={appearance}
-          onChange={changeAppearance}
-          compact
-        />
+        <SeasonIndicator season={season} compact />
       </header>
 
       <main className="main-content">

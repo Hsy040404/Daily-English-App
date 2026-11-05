@@ -864,27 +864,39 @@ const tests = {
   },
   ui1: async ({ page }) => {
     const shell = page.locator(".app-shell");
+    const expectedSeason = await page.evaluate(() => {
+      const month = new Date().getMonth() + 1;
+      if ([3, 4, 5].includes(month)) return "spring";
+      if ([6, 7, 8].includes(month)) return "summer";
+      if ([9, 10, 11].includes(month)) return "autumn";
+      return "winter";
+    });
     assert(
-      (await shell.getAttribute("data-theme")) === "clear",
-      "默认背景主题不正确"
+      (await shell.getAttribute("data-theme")) === expectedSeason,
+      "页面没有根据当前季节设置背景"
     );
-    await page.getByRole("button", { name: "雾蓝灰调" }).click();
     assert(
-      (await shell.getAttribute("data-theme")) === "overcast",
-      "无法切换到雾蓝灰调背景"
+      (await page.locator(".sidebar .season-indicator").innerText()).includes("季"),
+      "界面没有显示当前季节"
     );
-    await page.reload({ waitUntil: "networkidle" });
+
+    const gradients = await shell.evaluate((element) => {
+      const previousTheme = element.dataset.theme;
+      const previousTransition = element.style.transition;
+      element.style.transition = "none";
+      const result = {};
+      for (const season of ["spring", "summer", "autumn", "winter"]) {
+        element.dataset.theme = season;
+        result[season] = getComputedStyle(element).backgroundImage;
+      }
+      element.dataset.theme = previousTheme;
+      element.style.transition = previousTransition;
+      return result;
+    });
     assert(
-      (await page.locator(".app-shell").getAttribute("data-theme")) ===
-        "overcast",
-      "刷新后背景主题没有保存"
+      new Set(Object.values(gradients)).size === 4,
+      "四个季节使用了相同或缺失的背景渐变"
     );
-    await page.getByRole("button", { name: "冷蓝灰调" }).click();
-    assert(
-      (await page.locator(".app-shell").getAttribute("data-theme")) === "rain",
-      "无法切换到冷蓝灰调背景"
-    );
-    await page.getByRole("button", { name: "清透暖光" }).click();
 
     const cardStyle = await page.locator(".summary-card").first().evaluate(
       (element) => {
@@ -949,6 +961,13 @@ const tests = {
     });
     const glass = page.locator(".loading-glass");
     await glass.waitFor();
+    const loadingSeason = await page
+      .locator(".loading-screen")
+      .getAttribute("data-theme");
+    assert(
+      ["spring", "summer", "autumn", "winter"].includes(loadingSeason),
+      "启动页没有使用季节背景"
+    );
     const styles = await glass.evaluate((element) => {
       const style = getComputedStyle(element);
       return {
