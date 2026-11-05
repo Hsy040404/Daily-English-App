@@ -1061,6 +1061,30 @@ const tests = {
       path: path.join(outputRoot, "issue-fix1-calendar.png")
     });
   },
+  fix2: async ({ page }) => {
+    await navigate(page, "每日单词");
+    const tabs = page.locator(".word-view-tabs");
+    const styles = await tabs.evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        padding: style.padding,
+        radius: style.borderRadius,
+        shadow: style.boxShadow
+      };
+    });
+    assert(styles.background === "rgba(0, 0, 0, 0)", "切换按钮外层仍有背景");
+    assert(styles.padding === "0px", "切换按钮外层仍保留胶囊内边距");
+    assert(styles.radius === "0px", "切换按钮外层仍有圆角轮廓");
+    assert(styles.shadow === "none", "切换按钮外层仍有阴影");
+    assert(
+      (await tabs.getByRole("tab").count()) === 3,
+      "三个独立切换按钮数量不正确"
+    );
+    await tabs.screenshot({
+      path: path.join(outputRoot, "issue-fix2-tabs.png")
+    });
+  },
   u0: async ({ page }) => {
     await page.goto("http://127.0.0.1:4190/?loading-preview=1", {
       waitUntil: "networkidle"
