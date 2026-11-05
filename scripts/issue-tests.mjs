@@ -917,7 +917,7 @@ const tests = {
       "页面没有根据当前季节设置背景"
     );
     assert(
-      (await page.locator(".sidebar .season-indicator").innerText()).includes("季"),
+      (await page.locator(".sidebar .season-switcher").innerText()).includes("季"),
       "界面没有显示当前季节"
     );
 
@@ -1200,6 +1200,48 @@ const tests = {
     }
     await page.locator(".word-focus").screenshot({
       path: path.join(outputRoot, "issue-fix5-word.png")
+    });
+  },
+  fix6: async ({ page }) => {
+    const shell = page.locator(".app-shell");
+    const currentSeason = await page.evaluate(() => {
+      const month = new Date().getMonth() + 1;
+      if ([3, 4, 5].includes(month)) return "spring";
+      if ([6, 7, 8].includes(month)) return "summer";
+      if ([9, 10, 11].includes(month)) return "autumn";
+      return "winter";
+    });
+    for (const [label, theme] of [
+      ["切换到春季", "spring"],
+      ["切换到夏季", "summer"],
+      ["切换到秋季", "autumn"],
+      ["切换到冬季", "winter"]
+    ]) {
+      await page.getByRole("button", { name: label }).click();
+      assert(
+        (await shell.getAttribute("data-theme")) === theme,
+        `${label}没有生效`
+      );
+    }
+    await page.reload({ waitUntil: "networkidle" });
+    assert(
+      (await page.locator(".app-shell").getAttribute("data-theme")) === "winter",
+      "手动选择的季节没有持久化"
+    );
+    await page.getByRole("button", { name: "自动跟随季节" }).click();
+    assert(
+      (await page.locator(".app-shell").getAttribute("data-theme")) ===
+        currentSeason,
+      "自动模式没有恢复为当前季节"
+    );
+    assert(
+      (await page.locator(".sidebar .season-switcher__options button").count()) === 5,
+      "季节切换器没有提供四季和自动选项"
+    );
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.waitForTimeout(450);
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-fix6-season-switcher.png")
     });
   },
   u0: async ({ page }) => {

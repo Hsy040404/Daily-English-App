@@ -320,33 +320,59 @@ body {
   border-top-color: rgba(255, 255, 255, 0.13);
 }
 
-.season-indicator {
-  display: flex;
-  align-items: center;
-  gap: 9px;
+.season-switcher {
   margin-top: 15px;
   color: var(--text-muted);
 }
 
-.season-indicator > div > span,
-.season-indicator > div > strong {
+.season-switcher__label > span,
+.season-switcher__label > strong {
   display: block;
 }
 
-.season-indicator > div > span {
+.season-switcher__label > span {
   font-size: 8px;
 }
 
-.season-indicator > div > strong {
+.season-switcher__label > strong {
   margin-top: 2px;
   color: var(--text-secondary);
   font-size: 10px;
   font-weight: 500;
 }
 
+.season-switcher__options {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.season-switcher__options button {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition:
+    background-color 350ms ease-out,
+    box-shadow 350ms ease-out;
+}
+
+.season-switcher__options button.is-active {
+  background: rgba(255, 255, 255, 0.24);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.3),
+    0 0 0 1px rgba(255, 255, 255, 0.15);
+}
+
 .season-orb {
-  width: 27px;
-  height: 27px;
+  width: 16px;
+  height: 16px;
   display: block;
   flex: 0 0 auto;
   border-radius: 50%;
@@ -372,18 +398,33 @@ body {
   background: linear-gradient(145deg, #dce8ee, #6f8997);
 }
 
-.season-indicator.is-compact {
+.season-switcher.is-compact {
   margin: 0;
 }
 
-.season-indicator.is-compact .season-orb {
+.season-switcher.is-compact .season-switcher__options {
+  margin: 0;
+  gap: 3px;
+}
+
+.season-switcher.is-compact .season-switcher__options button {
   width: 25px;
   height: 25px;
+  border-radius: 8px;
 }
 
-.season-indicator.is-compact > div > strong {
-  margin: 0;
-  font-size: 9px;
+.season-switcher .season-auto {
+  width: auto;
+  min-width: 34px;
+  padding: 0 6px;
+  color: var(--text-secondary);
+  font-size: 8px;
+}
+
+.season-switcher.is-compact .season-auto {
+  min-width: 31px;
+  padding: 0 4px;
+  font-size: 7px;
 }
 
 .page-heading,

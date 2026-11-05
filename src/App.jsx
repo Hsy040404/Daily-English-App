@@ -16,10 +16,15 @@ import {
   getSetting,
   initializeSettings,
   normalizeStoredWords,
-  saveWordPairs
+  saveWordPairs,
+  setSetting
 } from "./db";
 import { localDateKey } from "./utils/date";
-import { getSeasonForDate, getSeasonLabel } from "./utils/season";
+import {
+  getSeasonForDate,
+  getSeasonLabel,
+  seasons
+} from "./utils/season";
 import { createDailyBackup } from "./utils/backup";
 import { Toast } from "./components/ui";
 import Home from "./pages/Home";
@@ -41,13 +46,39 @@ const pageTitles = {
   review: "间隔复习"
 };
 
-function SeasonIndicator({ season, compact = false }) {
+function SeasonSwitcher({ selected, automaticSeason, onChange, compact = false }) {
+  const activeSeason = selected === "automatic" ? automaticSeason : selected;
   return (
-    <div className={`season-indicator ${compact ? "is-compact" : ""}`}>
-      <i className={`season-orb season-orb--${season}`} />
-      <div>
-        {!compact ? <span>季节光感</span> : null}
-        <strong>{getSeasonLabel(season)}</strong>
+    <div className={`season-switcher ${compact ? "is-compact" : ""}`}>
+      {!compact ? (
+        <div className="season-switcher__label">
+          <span>季节光感</span>
+          <strong>
+            {getSeasonLabel(activeSeason)}
+            {selected === "automatic" ? " · 自动" : ""}
+          </strong>
+        </div>
+      ) : null}
+      <div className="season-switcher__options" role="group" aria-label="季节配色">
+        {Object.entries(seasons).map(([id, season]) => (
+          <button
+            key={id}
+            className={activeSeason === id ? "is-active" : ""}
+            onClick={() => onChange(id)}
+            aria-label={`切换到${season.label}`}
+            title={season.label}
+          >
+            <i className={`season-orb season-orb--${id}`} />
+          </button>
+        ))}
+        <button
+          className={`season-auto ${selected === "automatic" ? "is-active" : ""}`}
+          onClick={() => onChange("automatic")}
+          aria-label="自动跟随季节"
+          title="自动跟随季节"
+        >
+          自动
+        </button>
       </div>
     </div>
   );
@@ -172,7 +203,12 @@ async function loadSnapshot() {
 export default function App() {
   const [page, setPage] = useState("home");
   const [data, setData] = useState(null);
-  const [season, setSeason] = useState(() => getSeasonForDate());
+  const [automaticSeason, setAutomaticSeason] = useState(() =>
+    getSeasonForDate()
+  );
+  const [seasonPreference, setSeasonPreference] = useState("automatic");
+  const season =
+    seasonPreference === "automatic" ? automaticSeason : seasonPreference;
   const [fatalError, setFatalError] = useState("");
   const [toast, setToast] = useState(null);
   const initStarted = useRef(false);
@@ -214,12 +250,23 @@ export default function App() {
   }, [page]);
 
   useEffect(() => {
-    const timer = window.setInterval(
-      () => setSeason(getSeasonForDate()),
-      60 * 60 * 1000
-    );
+    getSetting("seasonPreference", "automatic")
+      .then((value) => {
+        if (value === "automatic" || value in seasons) {
+          setSeasonPreference(value);
+        }
+      })
+      .catch(() => {});
+    const timer = window.setInterval(() => {
+      setAutomaticSeason(getSeasonForDate());
+    }, 60 * 60 * 1000);
     return () => window.clearInterval(timer);
   }, []);
+
+  function changeSeason(value) {
+    setSeasonPreference(value);
+    setSetting("seasonPreference", value).catch(() => {});
+  }
 
   function navigate(nextPage) {
     setPage(nextPage);
@@ -293,7 +340,11 @@ export default function App() {
           <p>每天一点，积累会在不经意的某天连成线。</p>
         </div>
 
-        <SeasonIndicator season={season} />
+        <SeasonSwitcher
+          selected={seasonPreference}
+          automaticSeason={automaticSeason}
+          onChange={changeSeason}
+        />
 
         <div className="sidebar-footer">
           <div className="local-badge">
@@ -315,7 +366,12 @@ export default function App() {
           <div className="brand-mark">E.</div>
           <strong>每日英语</strong>
         </div>
-        <SeasonIndicator season={season} compact />
+        <SeasonSwitcher
+          selected={seasonPreference}
+          automaticSeason={automaticSeason}
+          onChange={changeSeason}
+          compact
+        />
       </header>
 
       <main className="main-content">
