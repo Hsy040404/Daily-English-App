@@ -1085,6 +1085,45 @@ const tests = {
       path: path.join(outputRoot, "issue-fix2-tabs.png")
     });
   },
+  fix3: async ({ page }) => {
+    const yesterday = await page.evaluate(() => {
+      const date = new Date();
+      date.setDate(date.getDate() - 1);
+      const pad = (value) => String(value).padStart(2, "0");
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    });
+    const words = (await readIndexedDb(page, "words")).slice(0, 12);
+    for (const word of words) {
+      await putIndexedDb(page, "words", {
+        ...word,
+        status: "learning",
+        dueDate: yesterday,
+        lastStudiedDate: yesterday
+      });
+    }
+    await page.reload({ waitUntil: "networkidle" });
+    await navigate(page, "间隔复习");
+    const cards = page.locator(".due-word-grid > div");
+    await cards.first().waitFor();
+    assert((await cards.count()) >= 12, "复习词卡没有正常生成");
+    const cardStyle = await cards.first().evaluate((element) => {
+      const style = getComputedStyle(element);
+      return {
+        background: style.backgroundColor,
+        color: style.color
+      };
+    });
+    assert(
+      cardStyle.background !== "rgb(255, 255, 255)",
+      "复习词卡仍然是白色实底"
+    );
+    assert(cardStyle.color.includes("255"), "复习词卡文字不是清晰白色");
+    const firstWord = await cards.first().locator("span").innerText();
+    assert(firstWord.trim().length > 0, "复习词卡内没有显示单词");
+    await page.locator(".review-preview").screenshot({
+      path: path.join(outputRoot, "issue-fix3-review-words.png")
+    });
+  },
   u0: async ({ page }) => {
     await page.goto("http://127.0.0.1:4190/?loading-preview=1", {
       waitUntil: "networkidle"
