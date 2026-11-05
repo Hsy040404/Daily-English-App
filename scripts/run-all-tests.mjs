@@ -78,6 +78,7 @@ try {
   await run("Calendar navigation visibility", ["scripts/issue-tests.mjs", "fix1"]);
   await run("Word tabs outer background", ["scripts/issue-tests.mjs", "fix2"]);
   await run("Review word card contrast", ["scripts/issue-tests.mjs", "fix3"]);
+  await run("Text color readability", ["scripts/issue-tests.mjs", "fix4"]);
   await run("Liquid glass loading screen", ["scripts/issue-tests.mjs", "u0"]);
   await run("Seasonal background mapping", ["scripts/test-season.mjs"]);
   await run("Answer page export", ["scripts/test-answer-export.mjs"]);

@@ -202,6 +202,41 @@ body {
   text-shadow: 0 1px 3px rgba(12, 31, 44, 0.36);
 }
 
+.main-content p {
+  color: var(--text-secondary);
+}
+
+.main-content small {
+  color: var(--text-muted);
+}
+
+.main-content label,
+.main-content legend {
+  color: var(--text-secondary);
+}
+
+.prompt-tips p {
+  color: var(--text-secondary);
+}
+
+.prompt-tips > div > span {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.word-display__source,
+.recording-stage > span,
+.reflection-footer > span,
+.material-format,
+.bank-date span,
+.calendar-weekdays span,
+.form-grid label > span,
+.check-row span small,
+.preview-more {
+  color: var(--text-muted);
+}
+
 .page {
   max-width: 1280px;
 }
@@ -698,7 +733,7 @@ body {
 
 textarea::placeholder,
 input::placeholder {
-  color: rgba(255, 255, 255, 0.42);
+  color: rgba(255, 255, 255, 0.62);
 }
 
 .word-view-tabs button,

@@ -1124,6 +1124,30 @@ const tests = {
       path: path.join(outputRoot, "issue-fix3-review-words.png")
     });
   },
+  fix4: async ({ page }) => {
+    await navigate(page, "口语练习");
+    const selectors = [
+      ".speaking-question",
+      ".prompt-tips p",
+      ".prompt-tips > div > span",
+      ".reflection-heading p",
+      ".reflection-footer > span"
+    ];
+    for (const selector of selectors) {
+      const color = await page
+        .locator(selector)
+        .first()
+        .evaluate((element) => getComputedStyle(element).color);
+      const channels = color.match(/\d+/g)?.slice(0, 3).map(Number) || [];
+      assert(
+        channels.length === 3 && channels.every((channel) => channel >= 200),
+        `${selector} 仍使用难以辨认的深色`
+      );
+    }
+    await page.locator(".speaking-prompt").screenshot({
+      path: path.join(outputRoot, "issue-fix4-text.png")
+    });
+  },
   u0: async ({ page }) => {
     await page.goto("http://127.0.0.1:4190/?loading-preview=1", {
       waitUntil: "networkidle"
