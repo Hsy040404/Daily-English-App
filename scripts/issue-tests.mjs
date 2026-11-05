@@ -1148,6 +1148,60 @@ const tests = {
       path: path.join(outputRoot, "issue-fix4-text.png")
     });
   },
+  fix5: async ({ page }) => {
+    const completedPlanTitle = page
+      .locator(".plan-row.is-done .plan-row__text strong")
+      .first();
+    await completedPlanTitle.waitFor();
+    const homeSelectors = [
+      ".plan-row.is-done .plan-row__text strong",
+      ".calendar-detail__date span",
+      ".calendar-detail__date strong"
+    ];
+    for (const selector of homeSelectors) {
+      const color = await page
+        .locator(selector)
+        .first()
+        .evaluate((element) => getComputedStyle(element).color);
+      const channels = color.match(/\d+/g)?.slice(0, 3).map(Number) || [];
+      assert(
+        channels.length === 3 && channels.every((channel) => channel >= 180),
+        `${selector} 仍然存在低对比文字`
+      );
+    }
+    const placeholderColor = await page
+      .getByLabel("今日快速备忘")
+      .evaluate((element) => getComputedStyle(element, "::placeholder").color);
+    const placeholderChannels =
+      placeholderColor.match(/\d+/g)?.slice(0, 3).map(Number) || [];
+    assert(
+      placeholderChannels.every((channel) => channel >= 180),
+      "快速备忘占位文字仍然过淡"
+    );
+
+    await navigate(page, "每日单词");
+    await page.locator(".word-navigation .study-choice--good").click();
+    await page.waitForTimeout(300);
+    const wordSelectors = [
+      ".mini-word-list button.is-studied .mini-word-text",
+      ".study-choice span",
+      ".meaning-area > button"
+    ];
+    for (const selector of wordSelectors) {
+      const color = await page
+        .locator(selector)
+        .first()
+        .evaluate((element) => getComputedStyle(element).color);
+      const channels = color.match(/\d+/g)?.slice(0, 3).map(Number) || [];
+      assert(
+        channels.length === 3 && channels.every((channel) => channel >= 170),
+        `${selector} 仍然存在低对比文字`
+      );
+    }
+    await page.locator(".word-focus").screenshot({
+      path: path.join(outputRoot, "issue-fix5-word.png")
+    });
+  },
   u0: async ({ page }) => {
     await page.goto("http://127.0.0.1:4190/?loading-preview=1", {
       waitUntil: "networkidle"
