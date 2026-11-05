@@ -65,6 +65,47 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
+function parseColor(value) {
+  const hex = value.trim().match(/^#([0-9a-f]{6})$/i);
+  if (hex) {
+    const number = Number.parseInt(hex[1], 16);
+    return {
+      r: (number >> 16) & 255,
+      g: (number >> 8) & 255,
+      b: number & 255,
+      a: 1
+    };
+  }
+  const rgba = value.match(/rgba?\(([^)]+)\)/);
+  if (!rgba) throw new Error(`Unsupported color: ${value}`);
+  const parts = rgba[1].split(",").map((part) => Number(part.trim()));
+  return { r: parts[0], g: parts[1], b: parts[2], a: parts[3] ?? 1 };
+}
+
+function relativeLuminance(color) {
+  const channels = [color.r, color.g, color.b].map((channel) => {
+    const normalized = channel / 255;
+    return normalized <= 0.03928
+      ? normalized / 12.92
+      : ((normalized + 0.055) / 1.055) ** 2.4;
+  });
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+}
+
+function contrastAgainstSurface(foreground, surface) {
+  const alpha = foreground.a ?? 1;
+  const blended = {
+    r: foreground.r * alpha + surface.r * (1 - alpha),
+    g: foreground.g * alpha + surface.g * (1 - alpha),
+    b: foreground.b * alpha + surface.b * (1 - alpha)
+  };
+  const foregroundLuminance = relativeLuminance(blended);
+  const backgroundLuminance = relativeLuminance(surface);
+  const lighter = Math.max(foregroundLuminance, backgroundLuminance);
+  const darker = Math.min(foregroundLuminance, backgroundLuminance);
+  return (lighter + 0.05) / (darker + 0.05);
+}
+
 async function openApp() {
   await fs.mkdir(outputRoot, { recursive: true });
   const server = createServer();
@@ -953,6 +994,48 @@ const tests = {
     await page.waitForTimeout(400);
     await page.screenshot({
       path: path.join(outputRoot, "issue-ui-mobile.png")
+    });
+  },
+  ui2: async ({ page }) => {
+    const contrastResults = await page
+      .locator(".app-shell")
+      .evaluate((element) => {
+        const previousTheme = element.dataset.theme;
+        const result = {};
+        for (const season of ["spring", "summer", "autumn", "winter"]) {
+          element.dataset.theme = season;
+          const style = getComputedStyle(element);
+          result[season] = {
+            surface: style.getPropertyValue("--readability-surface").trim(),
+            primary: style.getPropertyValue("--text-primary").trim(),
+            muted: style.getPropertyValue("--text-muted").trim(),
+            background: style.backgroundImage
+          };
+        }
+        element.dataset.theme = previousTheme;
+        return result;
+      });
+
+    for (const [season, values] of Object.entries(contrastResults)) {
+      const surface = parseColor(values.surface);
+      const primaryRatio = contrastAgainstSurface(
+        parseColor(values.primary),
+        surface
+      );
+      const mutedRatio = contrastAgainstSurface(
+        parseColor(values.muted),
+        surface
+      );
+      assert(primaryRatio >= 4.5, `${season} 主文字对比度不足`);
+      assert(mutedRatio >= 3, `${season} 辅助文字对比度不足`);
+      assert(values.background !== "none", `${season} 背景渐变缺失`);
+    }
+    const textShadow = await page
+      .locator(".home-hero h1")
+      .evaluate((element) => getComputedStyle(element).textShadow);
+    assert(textShadow !== "none", "主要文字缺少可读性阴影");
+    await page.screenshot({
+      path: path.join(outputRoot, "issue-ui-contrast.png")
     });
   },
   u0: async ({ page }) => {

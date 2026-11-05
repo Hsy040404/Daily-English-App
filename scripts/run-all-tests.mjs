@@ -74,6 +74,7 @@ try {
   await run("Daily word test gate", ["scripts/issue-tests.mjs", "q1"]);
   await run("Daily quiz resume", ["scripts/issue-tests.mjs", "q2"]);
   await run("Liquid glass visual layer", ["scripts/issue-tests.mjs", "ui1"]);
+  await run("Seasonal text contrast", ["scripts/issue-tests.mjs", "ui2"]);
   await run("Liquid glass loading screen", ["scripts/issue-tests.mjs", "u0"]);
   await run("Seasonal background mapping", ["scripts/test-season.mjs"]);
   await run("Answer page export", ["scripts/test-answer-export.mjs"]);
